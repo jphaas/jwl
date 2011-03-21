@@ -31,7 +31,7 @@ class LoginController(tornado.web.RequestHandler, AuthMixin, GoogleMixin):
             self.get_authenticated_user(self.async_callback(self._on_auth))
         elif command == 'logout':
             print 'in logout'
-            self.clear_current_user()
+            self.clear_the_user()
             self.redirect('/')
         else:
             raise Exception('unrecognized command ' + command)
