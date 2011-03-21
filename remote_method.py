@@ -55,6 +55,14 @@ def make_handler(app):
             return build_method_list(app)
     return Handle
     
+def make_dummy_handler(app):
+    class Handle(HTTPHandler):
+        def get_method_list(self):
+            return build_method_list(app)
+        def __init__(self):
+            pass
+    return Handle()
+    
 class HTTPHandler(tornado.web.RequestHandler):
     """  
     Override GetFunctionList() to provide the list of method to convert.
