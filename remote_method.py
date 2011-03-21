@@ -3,9 +3,9 @@ import tornado.web
 import inspect
 import traceback
 import logging
-import deployconfig
 import types
 
+from . import deployconfig
 from .authenticate import AuthMixin
 
 # Find a JSON parser
@@ -55,8 +55,6 @@ def _deser(obj):
   
 def make_dummy_handler(subclass):
     class Handle(subclass):
-        def get_method_list(self):
-            return build_method_list(app)
         def __init__(self):
             pass
     return Handle()
@@ -107,7 +105,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         return [arg for arg in inspect.getargspec(method)[0] if arg != 'self']
         
     def get_method_list(self):
-        raise NotImplementedException()
+        return build_method_list(self)
         
     def write_js_interface(self):
         """outputs the text for a javascript interface for hitting this server"""
@@ -129,5 +127,5 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         
 def build_method_list(object):
     """utility function, introspects a given object to automatically build a method list for it containing all non-underscore method names"""
-    return [getattr(object, name) for name in dir(object) if name[0] != '_' and type(getattr(object, name)) is types.MethodType]
+    return [getattr(object, name) for name in dir(object) if name[0] != '_' and name not in dir(HTTPHandler) and type(getattr(object, name)) is types.MethodType]
     

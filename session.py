@@ -7,4 +7,5 @@ def set_data(key, value):
     session[key] = value
  
 def clear_data(key):
-    del session[key]
+    if session.has_key(key):
+        del session[key]
