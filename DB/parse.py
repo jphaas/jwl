@@ -1,14 +1,16 @@
+from __future__ import absolute_import
+
 """
 Contains functions for traversing a query.
 """
-from Utils.multimethods import getNamespace
+from ..utils.multimethods import getNamespace
 try:
     from threading import current_thread
 except: #no threading on GAE
     current_thread = lambda: None
 mm = getNamespace()
-from Language.corelanguage import GetV, Node, GetSet, ValueSet, TypeSet, Filter, Compare, RemoveAll, Replace, Remove, Add, LimitFilter, List, Unlist
-from Language.corelanguage import GT, LT, LTE, GTE, NE, EQ, KINDS, PropertyStatement
+from ..Language.corelanguage import GetV, Node, GetSet, ValueSet, TypeSet, Filter, Compare, RemoveAll, Replace, Remove, Add, LimitFilter, List, Unlist
+from ..Language.corelanguage import GT, LT, LTE, GTE, NE, EQ, KINDS, PropertyStatement
 
 class QueryParser(object):
     

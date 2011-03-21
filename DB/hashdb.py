@@ -1,12 +1,14 @@
+from __future__ import absolute_import
+
 """
 In memory database that stores each type as a entry in a hash table
 """
 
-from parse import QueryParser
-from Language.corelanguage import GT, LT, LTE, GTE, NE, EQ, KINDS, PropertyStatement, exists, not_exists, is_listed
-from Utils.multimethods import getNamespace
+from .parse import QueryParser
+from ..Language.corelanguage import GT, LT, LTE, GTE, NE, EQ, KINDS, PropertyStatement, exists, not_exists, is_listed
+from ..utils.multimethods import getNamespace
 mm = getNamespace()
-from Language.bake import generate_metas
+from ..Language.bake import generate_metas
 
 class HashDB(object):
     

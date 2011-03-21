@@ -49,43 +49,46 @@ def _deser(obj):
             raise Exception('uncrecognized datatype: ' + str(dt))
     return d
     
-class HTTPHandler(tornado.web.RequestHandler):
-    """
-    Takes GET / POST events from web.py and converts them to a method call.
+def make_handler(app):
+    class Handle(HTTPHandler):
+        def get_method_list(self):
+            return build_method_list(app)
+    return Handle
     
+class HTTPHandler(tornado.web.RequestHandler):
+    """  
     Override GetFunctionList() to provide the list of method to convert.
     """
     def get(self):
-        return self._handle()
+        self._handle()
     def post(self):
-        return self._handle()
-    def __init__(self, app=None):
-        self._app = app
+        self._handle()
     def _handle(self):
         try:
-            i = web.webapi.rawinput()
-            if not hasattr(i, 'method'):
+            i = self.request.arguments
+            if not i.has_key('method'):
                 raise Exception('"method" not found in get / post data')
             try:
-                method = filter(lambda m: m.__name__ == i.method, self.get_method_list())[0]
+                method = filter(lambda m: m.__name__ == self.get_argument('method'), self.get_method_list())[0]
             except IndexError:
-                raise Exception('invalid method name: ' + i.method)
+                raise Exception('invalid method name: ' + self.get_argument('method'))
             logging.info(method.__name__ + repr(inspect.getargspec(method)))
             arglist = self.get_arglist(method)
                           
-            args = dict((argname, deserialize(i[argname], argname) if i.has_key(argname) else None) for argname in arglist)
+            args = dict((argname, deserialize(self.get_argument(argname), argname) if i.has_key(argname) else None) for argname in arglist)
                 
-            return self.serialize(method(**args))
+            self.write(self.serialize(method(**args)))
                 
             
         except ExpectedException, e:
-            return self.server_error(e.message, deployconfig.get('debug'))
+            self.write(self.server_error(e.message, deployconfig.get('debug')))
             logger.error(repr(e.message) + ' ' + traceback.format_exc())
         except Exception, e:
             logger.critical(repr(e.message) + ' ' + traceback.format_exc())
             if deployconfig.get('debug'):
-                return self.server_error(repr(e.message), True)
-            return self.server_error('Unexpected server error -- please try again later', False)
+                self.write(self.server_error(repr(e.message), True))
+            else:
+                self.write(self.server_error('Unexpected server error -- please try again later', False))
             
     def server_error(self, msg, stacktrace):
         r = {'server_error': True, 'message': msg}
@@ -98,7 +101,7 @@ class HTTPHandler(tornado.web.RequestHandler):
         return [arg for arg in inspect.getargspec(method)[0] if arg != 'self']
         
     def get_method_list(self):
-        return build_method_list(self._app)
+        raise NotImplementedException()
         
     def write_js_interface(self):
         """outputs the text for a javascript interface for hitting this server"""
