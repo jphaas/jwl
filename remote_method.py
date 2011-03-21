@@ -1,9 +1,12 @@
+from __future__ import absolute_import
 import tornado.web
 import inspect
 import traceback
 import logging
 import deployconfig
 import types
+
+from .authenticate import AuthMixin
 
 # Find a JSON parser
 try:
@@ -49,21 +52,16 @@ def _deser(obj):
             raise Exception('uncrecognized datatype: ' + str(dt))
     return d
     
-def make_handler(app):
-    class Handle(HTTPHandler):
-        def get_method_list(self):
-            return build_method_list(app)
-    return Handle
-    
-def make_dummy_handler(app):
-    class Handle(HTTPHandler):
+  
+def make_dummy_handler(subclass):
+    class Handle(subclass):
         def get_method_list(self):
             return build_method_list(app)
         def __init__(self):
             pass
     return Handle()
     
-class HTTPHandler(tornado.web.RequestHandler):
+class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     """  
     Override GetFunctionList() to provide the list of method to convert.
     """
