@@ -120,11 +120,22 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             output.append("allfuncs['%s'] = %s;"%(method.__name__, method.__name__))
             output.append('')
         return '\n'.join(output)
-                
+    
+
+    
     @staticmethod
     def serialize(obj):
-        return json.dumps(obj)
-        
+        nonamed = convert_namedtuples(obj)
+        return json.dumps(nonamed)
+
+def convert_namedtuples(obj):
+    if hasattr(obj, '_asdict'): return convert_namedtuples(obj._asdict())
+    if isinstance(obj, dict):
+        return dict((key, convert_namedtuples(value)) for key, value in obj.iteritems())
+    if isinstance(obj, list) or isinstance(obj, tuple):
+        return [convert_namedtuples(v) for v in obj]
+    return obj        
+       
 def build_method_list(object):
     """utility function, introspects a given object to automatically build a method list for it containing all non-underscore method names"""
     return [getattr(object, name) for name in dir(object) if name[0] != '_' and name not in dir(HTTPHandler) and type(getattr(object, name)) is types.MethodType]
