@@ -34,10 +34,16 @@ Here is the sequence of events:
 
 
 //pops up a login box.  if email access is required, pass in the message that should be displayed if email is not present
-function do_log_in(callback, email)
+function do_log_in(callback, email, otherperms)
 {
     var p = [];
     if (email) { p.push('email') }
+    if (otherperms)
+    {
+        for (var i = 0; i < otherperms.length; i++) {
+            p.push(otherperms[i]);
+        }
+    }
     $.cookie("fs_session_id", null); //delete the session cookie if present.
     FB.login(function(response) {
         if (response.session) {

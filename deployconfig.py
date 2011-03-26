@@ -6,6 +6,9 @@ except:
 def set(**args):
     for key in args:
         _config[key] = args[key]
+
+def set2(key, value):
+    _config[key] = value
     
 
 def get(key):

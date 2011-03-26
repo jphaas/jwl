@@ -1,12 +1,11 @@
 import deployconfig
 import facebook
-import web
 
-def getFBUser(exception = True):
+def getFBUser(exception = False):
     """Returns the user.  If exception = True (the default), raises an exception if not found"""
     user = facebook.get_user_from_cookie(web.cookies(), deployconfig.get('facebook_app_id'), deployconfig.get('facebook_app_secret'))
     if user is None and exception:
-        raise Exception('could not connect to facebook, please try again')
+        raise Exception(exception)
     return user
     
     
