@@ -29,6 +29,11 @@ class ExpectedException(Exception):
     """
     pass
 
+    
+#mark a function as asynchronous
+def asynchronous(func):
+    func.remote_method_async = True
+    return func
 
 #Takes a single json item or a list of json items
 #deserializes from json
@@ -63,10 +68,15 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     """  
     Override GetFunctionList() to provide the list of method to convert.
     """
+    @tornado.web.asynchronous
     def get(self):
         self._handle()
+    @tornado.web.asynchronous
     def post(self):
         self._handle()
+    def async_finish(return_value):
+        self.write(self.serialize(return_Value))
+        self.finish()
     def _handle(self):
         try:
             i = self.request.arguments
@@ -80,8 +90,12 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             arglist = self.get_arglist(method)
                           
             args = dict((argname, deserialize(self.get_argument(argname), argname) if i.has_key(argname) else None) for argname in arglist)
-                
-            self.write(self.serialize(method(**args)))
+            
+            if has_attr(method, remote_method_async):
+                method(**args)
+            else
+                self.write(self.serialize(method(**args)))
+                self.finish()
                 
             
         except ExpectedException, e:
