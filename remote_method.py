@@ -91,9 +91,9 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                           
             args = dict((argname, deserialize(self.get_argument(argname), argname) if i.has_key(argname) else None) for argname in arglist)
             
-            if has_attr(method, remote_method_async):
+            if hasattr(method, 'remote_method_async'):
                 method(**args)
-            else
+            else:
                 self.write(self.serialize(method(**args)))
                 self.finish()
                 
