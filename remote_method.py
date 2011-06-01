@@ -101,12 +101,14 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         except ExpectedException, e:
             self.write(self.server_error(e.message, deployconfig.get('debug')))
             logger.error(repr(e.message) + ' ' + traceback.format_exc())
+            self.finish()
         except Exception, e:
             logger.critical(repr(e.message) + ' ' + traceback.format_exc())
             if deployconfig.get('debug'):
                 self.write(self.server_error(repr(e.message), True))
             else:
                 self.write(self.server_error('Unexpected server error -- please try again later', False))
+            self.finish()
             
     def server_error(self, msg, stacktrace):
         r = {'server_error': True, 'message': msg}
