@@ -92,29 +92,16 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             args = dict((argname, deserialize(self.get_argument(argname), argname) if i.has_key(argname) else None) for argname in arglist)
             
             if hasattr(method, 'remote_method_async'):
-                method(**args)
+                x = method(**args)
+                if x is not None: raise Exception('Return value from asynchronous method... do not do that, use self.async_finish')
             else:
                 self.write(self.serialize(method(**args)))
                 self.finish()
                 
-            
-        except ExpectedException, e:
-            self.write(self.server_error(e.message, deployconfig.get('debug')))
-            logger.error(repr(e.message) + ' ' + traceback.format_exc())
-            self.finish()
         except Exception, e:
-            logger.critical(repr(e.message) + ' ' + traceback.format_exc())
-            if deployconfig.get('debug'):
-                self.write(self.server_error(repr(e.message), True))
-            else:
-                self.write(self.server_error('Unexpected server error -- please try again later', False))
-            self.finish()
-            
-    def server_error(self, msg, stacktrace):
-        r = {'server_error': True, 'message': msg}
-        if stacktrace:
-            r['stacktrace'] = traceback.format_exc()
-        return self.serialize(r)
+            r = self.handle_exception(e)
+            self.write(self.serialize(r))
+            self.finish()          
         
     @staticmethod
     def get_arglist(method):

@@ -4,17 +4,20 @@ from .utils import GUID
 from . import session
 import time
 
-EXPIRED = -2
+class NotLoggedInException(Exception): pass
 
 class AuthMixin:
     def get_the_user(self):
-        """Returns EXPIRED if expired or None if not found"""
+        """Returns None if not found"""
         s = self.get_secure_cookie('login_session')
         if s:
+            user = session.get_data('login_' + s)
+            if not user: return None
+            if session.get_data('user_' + user) != s: return None #Make sure only one session per user is valid at any given time
             exp = session.get_data('expiration_' + s)
             if exp and time.time() > exp:
-                return EXPIRED
-            return session.get_data('login_' + s)
+                return None
+            return user
         return None
 
     def set_the_user(self, user, expires):
@@ -23,8 +26,12 @@ class AuthMixin:
         self.set_secure_cookie('login_session', new_session, expires_days = None if expires else 365)
         session.set_data('login_' + new_session, user)
         session.set_data('expiration_' + new_session, time.time() + 60 * 60 * 24 if expires else None)
+        session.set_data('user_' + user, new_session) #Make sure only one session per user is valid at any given time
 
     def clear_the_user(self):
+        user = self.get_the_user()
+        if user:
+            session.clear_data('user_' + user)
         s = self.get_secure_cookie('login_session')
         if s:
             session.clear_data('login_' + s)
