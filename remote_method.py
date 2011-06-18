@@ -4,6 +4,7 @@ import inspect
 import traceback
 import logging
 import types
+import functools
 
 from . import deployconfig
 from .authenticate import AuthMixin
@@ -31,9 +32,9 @@ class ExpectedException(Exception):
 
     
 #mark a function as asynchronous
-def asynchronous(func):
-    func.remote_method_async = True
-    return func
+# def asynchronous(func):
+    # func.remote_method_async = True
+    # return func
 
 #Takes a single json item or a list of json items
 #deserializes from json
@@ -77,6 +78,20 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     def async_finish(self, return_value):
         self.write(self.serialize(return_value))
         self.finish()
+    def callback(self, gen, value):
+        try:
+            self.docall(gen, value)
+        except Exception, e:
+            r = self.handle_exception(e)
+            self.write(self.serialize(r))
+            self.finish()  
+    def docall(self, gen, value):
+        start = time.time()
+        cb = gen.send(value)
+        end = time.time()
+        dif = end - start
+        self.log_time(gen.__name__, dif)
+        cb(functools.partial(self.callback, gen))
     def _handle(self):
         try:
             i = self.request.arguments
@@ -91,12 +106,18 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                           
             args = dict((argname, deserialize(self.get_argument(argname), argname) if i.has_key(argname) else None) for argname in arglist)
             
-            if hasattr(method, 'remote_method_async'):
-                x = method(**args)
-                if x is not None: raise Exception('Return value from asynchronous method... do not do that, use self.async_finish')
-            else:
-                self.write(self.serialize(method(**args)))
-                self.finish()
+            gen = method(**args)()
+            self.docall(gen, None)
+            
+            # if inspect.isgeneratorfunction(method):
+                
+            # else:
+                # x = method(**args)
+            # if hasattr(method, 'remote_method_async'):
+                # if x is not None: raise Exception('Return value from asynchronous method... do not do that, use self.async_finish')
+            # else:
+                # self.write(self.serialize(x))
+                # self.finish()
                 
         except Exception, e:
             r = self.handle_exception(e)
