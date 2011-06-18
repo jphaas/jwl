@@ -6,6 +6,8 @@ import logging
 import types
 import functools
 import time
+import greenlet
+import weakref
 
 from . import deployconfig
 from .authenticate import AuthMixin
@@ -64,6 +66,18 @@ def make_dummy_handler(subclass):
         def __init__(self):
             pass
     return Handle()
+
+GreenletMapping = weakref.WeakKeyDictionary()
+    
+def get_resume_cb():
+    gr = greenlet.getcurrent()
+    handler = GreenletMapping[gr]
+    def cb(value):
+        handler.timecall(gr, value)
+    return cb
+    
+def yield_til_resume():
+    return greenlet.getcurrent().parent.switch()
     
 class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     """  
@@ -78,26 +92,19 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     def ret(self, return_value):
         self.write(self.serialize(return_value))
         self.finish()
-    def callback(self, gen, value):
+            
+    def timecall(self, gr, value):
         try:
-            self.docall(gen, value)
+            start = time.time()
+            gr.switch(value)
+            end = time.time()
+            dif = end - start
+            self.log_time(gr.run.__name__, dif)
         except Exception, e:
-            r = self.handle_exception(e, gen.__name__)
+            r = self.handle_exception(e, method.__name__)
             self.write(self.serialize(r))
-            self.finish()  
-    def docall(self, gen, value):
-        try:
-            cb = self.timecall(gen.__name__, lambda: gen.send(value))
-            cb(functools.partial(self.callback, gen))
-        except StopIteration:
-            pass
-    def timecall(self, name, func):
-        start = time.time()
-        ret = func()
-        end = time.time()
-        dif = end - start
-        self.log_time(name, dif)
-        return ret
+            self.finish()
+        
     def _handle(self):
         method = None
         try:
@@ -113,17 +120,17 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                           
             args = dict((argname, deserialize(self.get_argument(argname), argname) if i.has_key(argname) else None) for argname in arglist)
             
-            if inspect.isgeneratorfunction(method):
-                gen = method(**args)
-                self.docall(gen, None)
-            else:
-                x = self.timecall(method.__name__, lambda: method(**args))
+            def do_it():
+                x = method(**args)
                 if not self._finished and not hasattr(method, 'remote_method_async'): 
                     self.write(self.serialize(x))
                     self.finish()
                 elif x is not None:
-                    raise Exception('cannot both call self.ret and return non-None from the same method / cannot return non-None from an asynchronous method')
-                
+                    raise Exception('cannot both call self.ret and return non-None from the same method / cannot return non-None from an asynchronous method')            
+            gr = greenlet.greenlet(do_it)
+            GreenletMapping[gr] = self
+            self.timecall(gr, None)           
+
         except Exception, e:
             r = self.handle_exception(e, method.__name__)
             self.write(self.serialize(r))
