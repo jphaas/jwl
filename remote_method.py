@@ -5,6 +5,7 @@ import traceback
 import logging
 import types
 import functools
+import time
 
 from . import deployconfig
 from .authenticate import AuthMixin
@@ -31,10 +32,9 @@ class ExpectedException(Exception):
     pass
 
     
-#mark a function as asynchronous
-# def asynchronous(func):
-    # func.remote_method_async = True
-    # return func
+def asynchronous(func):
+    func.remote_method_async = True
+    return func
 
 #Takes a single json item or a list of json items
 #deserializes from json
@@ -75,24 +75,31 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     @tornado.web.asynchronous
     def post(self):
         self._handle()
-    def async_finish(self, return_value):
+    def ret(self, return_value):
         self.write(self.serialize(return_value))
         self.finish()
     def callback(self, gen, value):
         try:
             self.docall(gen, value)
         except Exception, e:
-            r = self.handle_exception(e)
+            r = self.handle_exception(e, gen.__name__)
             self.write(self.serialize(r))
             self.finish()  
     def docall(self, gen, value):
+        try:
+            cb = self.timecall(gen.__name__, lambda: gen.send(value))
+            cb(functools.partial(self.callback, gen))
+        except StopIteration:
+            pass
+    def timecall(self, name, func):
         start = time.time()
-        cb = gen.send(value)
+        ret = func()
         end = time.time()
         dif = end - start
-        self.log_time(gen.__name__, dif)
-        cb(functools.partial(self.callback, gen))
+        self.log_time(name, dif)
+        return ret
     def _handle(self):
+        method = None
         try:
             i = self.request.arguments
             if not i.has_key('method'):
@@ -106,21 +113,19 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                           
             args = dict((argname, deserialize(self.get_argument(argname), argname) if i.has_key(argname) else None) for argname in arglist)
             
-            gen = method(**args)()
-            self.docall(gen, None)
-            
-            # if inspect.isgeneratorfunction(method):
-                
-            # else:
-                # x = method(**args)
-            # if hasattr(method, 'remote_method_async'):
-                # if x is not None: raise Exception('Return value from asynchronous method... do not do that, use self.async_finish')
-            # else:
-                # self.write(self.serialize(x))
-                # self.finish()
+            if inspect.isgeneratorfunction(method):
+                gen = method(**args)
+                self.docall(gen, None)
+            else:
+                x = self.timecall(method.__name__, lambda: method(**args))
+                if not self._finished and not hasattr(method, 'remote_method_async'): 
+                    self.write(self.serialize(x))
+                    self.finish()
+                elif x is not None:
+                    raise Exception('cannot both call self.ret and return non-None from the same method / cannot return non-None from an asynchronous method')
                 
         except Exception, e:
-            r = self.handle_exception(e)
+            r = self.handle_exception(e, method.__name__)
             self.write(self.serialize(r))
             self.finish()          
         
@@ -145,7 +150,11 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             output.append('')
         return '\n'.join(output)
     
-
+    def handle_exception(self):
+        raise Exception('no exception handler defined -- overwrite handle_exception')
+        
+    def log_time(self):
+        raise Exception('no time logger defined -- overwite log_time')
     
     @staticmethod
     def serialize(obj):
