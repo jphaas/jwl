@@ -89,7 +89,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     @tornado.web.asynchronous
     def post(self):
         self._handle()
-    def ret(self, return_value):
+    def async_finish(self, return_value):
         self.write(self.serialize(return_value))
         self.finish()
             
