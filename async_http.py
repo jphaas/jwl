@@ -46,7 +46,7 @@ class AsyncHttpConnection(object):
         
         cb = remote_method.get_resume_cb()
         http_client.fetch(request, functools.partial(self._callback, cb))
-        response = remote_method.yield_til_resume():
+        response = remote_method.yield_til_resume()
         return response
 
 def call_async(fn, callback):

@@ -68,6 +68,7 @@ def make_dummy_handler(subclass):
     return Handle()
 
 GreenletMapping = weakref.WeakKeyDictionary()
+GreenletNames = weakref.WeakKeyDictionary()
     
 def get_resume_cb():
     gr = greenlet.getcurrent()
@@ -99,9 +100,10 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             gr.switch(value)
             end = time.time()
             dif = end - start
-            self.log_time(gr.run.__name__, dif)
+            self.log_time(GreenletNames[gr], dif)
         except Exception, e:
-            r = self.handle_exception(e, method.__name__)
+            nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
+            r = self.handle_exception(e, nm)
             self.write(self.serialize(r))
             self.finish()
         
@@ -120,7 +122,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                           
             args = dict((argname, deserialize(self.get_argument(argname), argname) if i.has_key(argname) else None) for argname in arglist)
             
-            def do_it():
+            def do_it(_):
                 x = method(**args)
                 if not self._finished and not hasattr(method, 'remote_method_async'): 
                     self.write(self.serialize(x))
@@ -129,6 +131,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                     raise Exception('cannot both call self.ret and return non-None from the same method / cannot return non-None from an asynchronous method')            
             gr = greenlet.greenlet(do_it)
             GreenletMapping[gr] = self
+            GreenletNames[gr] = method.__name__
             self.timecall(gr, None)           
 
         except Exception, e:
