@@ -67,9 +67,9 @@ class AsyncConnectionMixin(object):
         if not hasattr(self, "_async_http_connection"):
             super(AsyncConnectionMixin, self).put_http_connection(*args, **kwargs)
             
-class AsyncSDBConnection(boto.sdb.connection.SDBConnection,AsyncConnectionMixin):
+class AsyncSDBConnection(AsyncConnectionMixin,boto.sdb.connection.SDBConnection):
     pass
     
-class AsyncS3Connection(boto.s3.connection.S3Connection, AsyncConnectionMixin):
+class AsyncS3Connection(AsyncConnectionMixin, boto.s3.connection.S3Connection):
     pass
     

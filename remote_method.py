@@ -8,6 +8,8 @@ import functools
 import time
 import greenlet
 import weakref
+import Queue
+import threading
 
 from . import deployconfig
 from .authenticate import AuthMixin
@@ -66,7 +68,12 @@ def make_dummy_handler(subclass):
         def __init__(self):
             pass
     return Handle()
-
+    
+log = None
+def set_logger(logfunc):
+    global log
+    log = logfunc
+    
 GreenletMapping = weakref.WeakKeyDictionary()
 GreenletNames = weakref.WeakKeyDictionary()
     
@@ -79,6 +86,32 @@ def get_resume_cb():
     
 def yield_til_resume():
     return greenlet.getcurrent().parent.switch()
+    
+taskqueue = Queue.Queue()
+workingthread = None
+
+def workerThread():
+    global workingthread
+    while True:
+        try:
+            func = taskqueue.get(True, 2)
+            func()
+        except Queue.Empty:
+            workingthread = None
+            break
+        except Exception, e:
+            log(1, 'EXCEPTION IN workerThread: '  + str(e.message) + '\n\n' + traceback.format_exc(), {})
+
+def ensureThread():
+    global workingthread
+    if workingthread is not None: return
+    workingthread = threading.Thread(target=workerThread)
+    workingthread.start()
+    
+#executes function on a seperate thread
+def do_later(func):
+    taskqueue.put(func)
+    ensureThread()
     
 class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     """  
@@ -106,7 +139,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             r = self.handle_exception(e, nm)
             self.write(self.serialize(r))
             self.finish()
-        
+    
     def _handle(self):
         method = None
         try:
