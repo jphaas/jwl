@@ -56,20 +56,7 @@ def call_async(fn, callback):
     greenlet.greenlet(go).switch()
         
 class AsyncConnectionMixin(object):
-    """
-    Mixin to replace get_http_connection and put_http_connection in a
-    subclass of AWSAuthConnection from Boto to create an Async version
-    of a connection class.
-
-    All calls to methods in the new Async version must be wrapped in
-    call_async calls to make then operate asynchronously.
-    """
-
     def get_http_connection(self, host, is_secure):
-        """
-        This is called to get an HTTP connection from the pool. This
-        is the point at which we inject our replacement http connection
-        """
         if not hasattr(self, "_async_http_connection"):
             self._async_http_connection = AsyncHttpConnection()
         self._async_http_connection.host = host
@@ -85,3 +72,4 @@ class AsyncSDBConnection(boto.sdb.connection.SDBConnection,AsyncConnectionMixin)
     
 class AsyncS3Connection(boto.s3.connection.S3Connection, AsyncConnectionMixin):
     pass
+    
