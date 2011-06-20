@@ -112,6 +112,35 @@ def ensureThread():
 def do_later(func):
     taskqueue.put(func)
     ensureThread()
+ 
+#executes function on the main event loop, but at a seperate time.
+def do_later_event_loop(func, name = None):
+    if name is None: name = func.__name__
+    tornado.ioloop.IOLoop.instance().add_callback(functools.partial(launch_on_greenlet, func, name = name))
+    
+    
+class NonRequest:
+    def timecall(self, gr, value):
+        nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
+        try:
+            start = time.time()
+            gr.switch(value)
+            end = time.time()
+            dif = end - start
+            # if dif > .01:
+                # log(1, 'Taking too long: ' + nm + ': ' + str(dif), {})
+            #DISABLING THIS, BECAUSE COULD GET CIRCULAR WITH LOG FUNCTION
+        except Exception, e:
+            log(1, 'EXCEPTION in ' + nm + ': ' + str(e.message) + '\n\n' + traceback.format_exc(), {})
+        
+nonrequest = NonRequest()
+    
+def launch_on_greenlet(func, name = None):
+    if name is None: name = func.__name__
+    gr = greenlet.greenlet(lambda _: func())
+    GreenletMapping[gr] = nonrequest
+    GreenletNames[gr] = name
+    nonrequest.timecall(gr, None)
     
 class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     """  
@@ -161,7 +190,8 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                     self.write(self.serialize(x))
                     self.finish()
                 elif x is not None:
-                    raise Exception('cannot both call self.ret and return non-None from the same method / cannot return non-None from an asynchronous method')            
+                    raise Exception('cannot both call self.ret and return non-None from the same method / cannot return non-None from an asynchronous method')  
+            
             gr = greenlet.greenlet(do_it)
             GreenletMapping[gr] = self
             GreenletNames[gr] = method.__name__

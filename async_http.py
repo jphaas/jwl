@@ -6,19 +6,22 @@ import urlparse
 import functools
 import hashlib
 import remote_method
+import mimetools
 
 import greenlet
 
 class AsyncHttpResponse(object):
-    def __init__(self, status, reason, body, headers):
+    def __init__(self, status, reason, body, buffer, headers):
         self.status = status
         self.reason = reason
         self.body = body
+        self.buffer = buffer
         self.headers = headers
-    def read(self):
-        return self.body
-    def getheader(self, name):
-        return self.headers.get(name,None)
+        self.msg = mimetools.Message(buffer)
+    def read(self, bytes = -1):
+        return self.buffer.read(bytes)
+    def getheader(self, name, default=None):
+        return self.headers.get(name,default)
 
 class AsyncHttpConnection(object):
     def __init__(self):      
@@ -32,7 +35,7 @@ class AsyncHttpConnection(object):
         self.headers = headers      
 
     def _callback(self, cb, tornado_response):
-        response = AsyncHttpResponse(tornado_response.code, "???", tornado_response.body, tornado_response.headers)
+        response = AsyncHttpResponse(tornado_response.code, "???", tornado_response.body, tornado_response.buffer, tornado_response.headers)
         cb(response)
         
     def getresponse(self):
