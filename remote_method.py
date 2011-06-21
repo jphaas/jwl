@@ -127,7 +127,7 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
             return yield_til_resume()
         else:
             gwaiting_on[(name, version)] = []
-            result = fetcher()
+            result = fetcher(version)
             save_resource(name, version, result, delete_old)
             for cb, name in gwaiting_on[(name, version)]:
                 do_later_event_loop(functools.partial(cb, result), name)
