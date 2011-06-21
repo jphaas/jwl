@@ -109,8 +109,18 @@ gresource_cache = {}
 
 gwaiting_on = {}
 
+def save_resource(name, version, value, delete_old = True):
+    if gresource_cache.has_key(name):
+        name_cache = gresource_cache[name]
+    else:
+        name_cache = {}
+        gresource_cache[name] = name_cache
+    name_cache[version] = result
+    if delete_old:
+        for key in name_cache.keys():
+            if key < version: del name_cache[key] 
+
 def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_old = True):
-    name_cache = None
     def do_fetch_once()
         if gwaiting_on.has_key((name, version)):
             gwaiting_on[(name, version)].append((get_resume_cb(), get_current_name()))
@@ -118,10 +128,7 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
         else:
             gwaiting_on[(name, version)] = []
             result = fetcher()
-            name_cache[version] = result
-            if delete_old:
-                for key in name_cache.keys():
-                    if key < version: del name_cache[key]     
+            save_resource(name, version, result, delete_old)
             for cb, name in gwaiting_on[(name, version)]:
                 do_later_event_loop(functools.partial(cb, result), name)
             del gwaiting_on[(name, version)]
@@ -133,16 +140,10 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
         elif return_old_okay:
             old_ver = max(name_cache.keys())
             do_later_event_loop(do_fetch_once, 'fetch ' + name + ' ' + str(version))
-            return name_cache[old_ver]
-    else:
-        name_cache = {}
-        gresource_cache[name] = name_cache
-        
+            return name_cache[old_ver]        
     return do_fetch_once()
         
-     
-    
-        
+
         
 def ensureThread():
     global workingthread
