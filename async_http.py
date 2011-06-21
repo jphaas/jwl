@@ -17,6 +17,8 @@ class AsyncHttpResponse(object):
         self.body = body
         self.buffer = buffer
         self.headers = headers
+        if buffer is None:
+            raise Exception('Missing buffer:\nStatus:\n' + str(status) + '\nbody:\n' + str(body) + '\nheaders:\n' + str(headers))
         self.msg = mimetools.Message(buffer)
     def read(self, bytes = -1):
         return self.buffer.read(bytes)
@@ -35,6 +37,8 @@ class AsyncHttpConnection(object):
         self.headers = headers      
 
     def _callback(self, cb, tornado_response):
+        if tornado_response.code == 599:
+            raise Exception('599 response: network error')
         response = AsyncHttpResponse(tornado_response.code, "???", tornado_response.body, tornado_response.buffer, tornado_response.headers)
         cb(response)
         
