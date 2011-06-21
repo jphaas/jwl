@@ -51,12 +51,6 @@ class AsyncHttpConnection(object):
         http_client.fetch(request, functools.partial(self._callback, cb))
         response = remote_method.yield_til_resume()
         return response
-
-def call_async(fn, callback):
-    def go():
-        ret = fn()
-        tornado.ioloop.IOLoop.instance().add_callback(lambda : callback(ret))
-    greenlet.greenlet(go).switch()
         
 class AsyncConnectionMixin(object):
     def get_http_connection(self, host, is_secure):

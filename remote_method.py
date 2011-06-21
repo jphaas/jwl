@@ -89,21 +89,6 @@ def get_current_name():
     
 def yield_til_resume():
     return greenlet.getcurrent().parent.switch()
-    
-taskqueue = Queue.Queue()
-workingthread = None
-
-def workerThread():
-    global workingthread
-    while True:
-        try:
-            func = taskqueue.get(True, 2)
-            func()
-        except Queue.Empty:
-            workingthread = None
-            break
-        except Exception, e:
-            log(1, 'EXCEPTION IN workerThread: '  + str(e.message) + '\n\n' + traceback.format_exc(), {})
             
 gresource_cache = {}
 
@@ -121,11 +106,15 @@ def save_resource(name, version, value, delete_old = True):
             if key < version: del name_cache[key] 
 
 def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_old = True):
+    # print 'in fetch_cache_resource for ' + name + ' ' + str(version)
     def do_fetch_once():
+        # print 'in do_fetch_once'
         if gwaiting_on.has_key((name, version)):
+            # print 'already fetching, waiting'
             gwaiting_on[(name, version)].append((get_resume_cb(), get_current_name()))
             return yield_til_resume()
         else:
+            # print 'calling the function'
             gwaiting_on[(name, version)] = []
             result = fetcher(version)
             save_resource(name, version, result, delete_old)
@@ -136,25 +125,49 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
     if gresource_cache.has_key(name):
         name_cache = gresource_cache[name]
         if name_cache.has_key(version):
+            # print 'found, returning'
             return name_cache[version]
         elif return_old_okay:
+            # print 'going with old, returning'
             old_ver = max(name_cache.keys())
             do_later_event_loop(do_fetch_once, 'fetch ' + name + ' ' + str(version))
             return name_cache[old_ver]        
     return do_fetch_once()
         
+queues = {}
+queues['task'] = Queue.Queue()
+queues['callback'] = Queue.Queue()
+threads = {}
 
+def workerThread(thread_name):
+    while True:
+        try:
+            func = queues[thread_name].get(True, 2)
+            func()
+        except Queue.Empty:
+            del threads[thread_name]
+            break
+        except Exception, e:
+            log(1, 'EXCEPTION IN workerThread: '  + str(e.message) + '\n\n' + traceback.format_exc(), {})
         
-def ensureThread():
-    global workingthread
-    if workingthread is not None: return
-    workingthread = threading.Thread(target=workerThread)
-    workingthread.start()
+def ensureThread(thread_name):
+    if threads.has_key(thread_name): return
+    threads[thread_name] = threading.Thread(target=functools.partial(workerThread, thread_name))
+    threads[thread_name].start()
     
 #executes function on a seperate thread
-def do_later(func):
-    taskqueue.put(func)
-    ensureThread()
+def do_later(func, t = 'task'):
+    queues[t].put(func)
+    ensureThread(t)
+    
+#executes function on a seperate thread, pausing the current operation until it returns
+def execute_async(func):
+    cb = get_resume_cb()
+    def do_it():
+        ret = func()
+        tornado.ioloop.IOLoop.instance().add_callback(lambda: cb(ret))
+    do_later(do_it, t = 'callback')
+    return yield_til_resume()
  
 #executes function on the main event loop, but at a seperate time.
 def do_later_event_loop(func, name = None):
