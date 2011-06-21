@@ -9,9 +9,10 @@ if exists(_backup):
     with open(_backup, 'r') as file:
         try:
             session, expires = pickle.loads(file.read())
-        except EOFError:
+        except:
             print 'WARNING: session file corrupted'
             session = {}
+            expires = {}
 else:
     session = {}
     expires = {}

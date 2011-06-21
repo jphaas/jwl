@@ -115,13 +115,13 @@ def save_resource(name, version, value, delete_old = True):
     else:
         name_cache = {}
         gresource_cache[name] = name_cache
-    name_cache[version] = result
+    name_cache[version] = value
     if delete_old:
         for key in name_cache.keys():
             if key < version: del name_cache[key] 
 
 def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_old = True):
-    def do_fetch_once()
+    def do_fetch_once():
         if gwaiting_on.has_key((name, version)):
             gwaiting_on[(name, version)].append((get_resume_cb(), get_current_name()))
             return yield_til_resume()
@@ -129,8 +129,8 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
             gwaiting_on[(name, version)] = []
             result = fetcher(version)
             save_resource(name, version, result, delete_old)
-            for cb, name in gwaiting_on[(name, version)]:
-                do_later_event_loop(functools.partial(cb, result), name)
+            for cb, nm in gwaiting_on[(name, version)]:
+                do_later_event_loop(functools.partial(cb, result), nm)
             del gwaiting_on[(name, version)]
             return result
     if gresource_cache.has_key(name):
