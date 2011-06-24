@@ -178,7 +178,7 @@ def do_later_event_loop(func, name = None):
 class NonRequest:
     def timecall(self, gr, value):
         nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
-        print 'event loop - entering - ' + nm
+        # print 'event loop - entering - ' + nm
         try:
             start = time.time()
             gr.switch(value)
@@ -190,7 +190,8 @@ class NonRequest:
         except Exception, e:
             log(1, 'EXCEPTION in ' + nm + ': ' + str(e.message) + '\n\n' + traceback.format_exc(), {})
         finally:
-            print 'event loop - exiting - ' + nm
+            # print 'event loop - exiting - ' + nm
+            pass
         
 nonrequest = NonRequest()
     
@@ -217,20 +218,21 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             
     def timecall(self, gr, value):
         nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
-        print 'event loop - entering - ' + nm
+        # print 'event loop - entering - ' + nm
         try:
             start = time.time()
             gr.switch(value)
             end = time.time()
             dif = end - start
-            print 'event loop - time - ' + str(dif)
+            # print 'event loop - time - ' + str(dif)
             self.log_time(nm, dif)
         except Exception, e:
             r = self.handle_exception(e, nm)
             self.write(self.serialize(r))
             self.finish()
         finally:
-            print 'event loop - exiting - ' + nm
+            # print 'event loop - exiting - ' + nm
+            pass
     
     def _handle(self):
         method = None
