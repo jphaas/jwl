@@ -7,6 +7,7 @@ import functools
 import hashlib
 import remote_method
 import mimetools
+from jwl.globaltimer import check, show_output
 
 import greenlet
 
@@ -29,12 +30,26 @@ class AsyncHttpConnection(object):
     def __init__(self):      
         self.host = None
         self.is_secure = None
+        self.headers = {}
         
     def request(self, method, path, data, headers):
         self.method = method
         self.path = path
         self.data = data
-        self.headers = headers      
+        self.headers = headers     
+
+    def putrequest(self, method, path):
+        self.method = method
+        self.path = path
+        self.data = ''
+    def putheader(self, key, header):
+        self.headers[key] = header
+    def endheaders(self):
+        pass
+    def set_debuglevel(self, level):
+        pass
+    def send(self, data):
+        self.data += data
 
     def _callback(self, cb, tornado_response):
         if tornado_response.code == 599:
@@ -43,16 +58,21 @@ class AsyncHttpConnection(object):
         cb(response)
         
     def getresponse(self):
+        check('in getresponse')
         http_client = tornado.httpclient.AsyncHTTPClient()
         if self.is_secure:
             schema = "https"
         else:
             schema = "http"
         url = "%s://%s%s" % (schema, self.host, self.path)
+        check('about to create request')
         request = tornado.httpclient.HTTPRequest(url,self.method, self.headers, self.data or None)
+        check('created request')
         
         cb = remote_method.get_resume_cb()
+        check('about to launch request')
         http_client.fetch(request, functools.partial(self._callback, cb))
+        check('launched request, about to yield')
         response = remote_method.yield_til_resume()
         return response
         

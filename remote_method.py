@@ -10,6 +10,7 @@ import greenlet
 import weakref
 import Queue
 import threading
+from jwl.globaltimer import start, check, show_output
 
 from . import deployconfig
 from .authenticate import AuthMixin
@@ -218,20 +219,21 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             
     def timecall(self, gr, value):
         nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
-        # print 'event loop - entering - ' + nm
         try:
-            start = time.time()
+            starttime = time.time()
+            start()
+            check('event loop - entering - ' + nm)
             gr.switch(value)
             end = time.time()
-            dif = end - start
-            # print 'event loop - time - ' + str(dif)
+            dif = end - starttime
+            check('event loop - exiting - ' + nm)
+            show_output()
             self.log_time(nm, dif)
         except Exception, e:
             r = self.handle_exception(e, nm)
             self.write(self.serialize(r))
             self.finish()
         finally:
-            # print 'event loop - exiting - ' + nm
             pass
     
     def _handle(self):
