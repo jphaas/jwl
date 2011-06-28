@@ -17,6 +17,5 @@ def check(msg):
         
 def show_output():
     if not deployconfig.get('debug'): return
-    check('in show output')
     if buffer:
         for l in buffer: print l

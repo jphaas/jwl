@@ -178,6 +178,7 @@ def do_later_event_loop(func, name = None):
     
 class NonRequest:
     def timecall(self, gr, value):
+        if greenlet.getcurrent().parent is not None: raise Exception('time call should only be called from the top-most greenlet!')
         nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
         # print 'event loop - entering - ' + nm
         try:
@@ -218,17 +219,20 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         self.finish()
             
     def timecall(self, gr, value):
+        if greenlet.getcurrent().parent is not None: raise Exception('time call should only be called from the top-most greenlet!')
         nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
         try:
             starttime = time.time()
             start()
             check('event loop - entering - ' + nm)
             gr.switch(value)
+            # print 'line ', gr.gr_frame.f_lineno
+            # print traceback.format_stack(gr.gr_frame)
             end = time.time()
             dif = end - starttime
             check('event loop - exiting - ' + nm)
             show_output()
-            self.log_time(nm, dif)
+            self.log_time(nm, dif, gr)
         except Exception, e:
             r = self.handle_exception(e, nm)
             self.write(self.serialize(r))
@@ -293,7 +297,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     def handle_exception(self):
         raise Exception('no exception handler defined -- overwrite handle_exception')
         
-    def log_time(self):
+    def log_time(self, nm, dif, gr):
         raise Exception('no time logger defined -- overwite log_time')
     
     @staticmethod

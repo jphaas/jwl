@@ -52,27 +52,24 @@ class AsyncHttpConnection(object):
         self.data += data
 
     def _callback(self, cb, tornado_response):
-        if tornado_response.code == 599:
-            raise Exception('599 response: network error')
+        # if tornado_response.code == 599:
+            # raise Exception('599 response: network error')
+        if tornado_response.error is not None:
+            tornado_response.rethrow()
         response = AsyncHttpResponse(tornado_response.code, "???", tornado_response.body, tornado_response.buffer, tornado_response.headers)
         cb(response)
         
     def getresponse(self):
-        check('in getresponse')
         http_client = tornado.httpclient.AsyncHTTPClient()
         if self.is_secure:
             schema = "https"
         else:
             schema = "http"
         url = "%s://%s%s" % (schema, self.host, self.path)
-        check('about to create request')
-        request = tornado.httpclient.HTTPRequest(url,self.method, self.headers, self.data or None)
-        check('created request')
+        request = tornado.httpclient.HTTPRequest(url,self.method, self.headers, self.data or None, request_timeout=120)
         
         cb = remote_method.get_resume_cb()
-        check('about to launch request')
         http_client.fetch(request, functools.partial(self._callback, cb))
-        check('launched request, about to yield')
         response = remote_method.yield_til_resume()
         return response
         
