@@ -40,6 +40,10 @@ class ExpectedException(Exception):
 def asynchronous(func):
     func.remote_method_async = True
     return func
+    
+def no_serialize(func):
+    func.do_not_serialize = True
+    return func
 
 #Takes a single json item or a list of json items
 #deserializes from json
@@ -178,11 +182,11 @@ def do_later_event_loop(func, name = None):
     
 class NonRequest:
     def timecall(self, gr, value):
-        if greenlet.getcurrent().parent is not None: raise Exception('time call should only be called from the top-most greenlet!')
         nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
         # print 'event loop - entering - ' + nm
         try:
             start = time.time()
+            gr.parent = greenlet.getcurrent()
             gr.switch(value)
             end = time.time()
             dif = end - start
@@ -199,6 +203,7 @@ nonrequest = NonRequest()
     
 def launch_on_greenlet(func, name = None):
     if name is None: name = func.__name__
+    if greenlet.getcurrent().parent is not None: raise Exception('launch_on_greenlet should only be called from the top-most greenlet!')
     gr = greenlet.greenlet(lambda _: func())
     GreenletMapping[gr] = nonrequest
     GreenletNames[gr] = name
@@ -219,12 +224,12 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         self.finish()
             
     def timecall(self, gr, value):
-        if greenlet.getcurrent().parent is not None: raise Exception('time call should only be called from the top-most greenlet!')
         nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
         try:
             starttime = time.time()
             start()
             check('event loop - entering - ' + nm)
+            gr.parent = greenlet.getcurrent()
             gr.switch(value)
             # print 'line ', gr.gr_frame.f_lineno
             # print traceback.format_stack(gr.gr_frame)
@@ -258,7 +263,9 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             def do_it(_):
                 x = method(**args)
                 if not self._finished and not hasattr(method, 'remote_method_async'): 
-                    self.write(self.serialize(x))
+                    if not hasattr(method, 'do_not_serialize'):
+                        x = self.serialize(x)
+                    self.write(x)
                     self.finish()
                 elif x is not None:
                     raise Exception('cannot both call self.ret and return non-None from the same method / cannot return non-None from an asynchronous method')  
