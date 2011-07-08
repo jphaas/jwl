@@ -1,5 +1,9 @@
 import time
 from jwl import deployconfig
+import logging
+
+logger = logging.getLogger('ajaxdisplay.GlobalTimer')
+
 
 starttime = None
 buffer = None
@@ -16,6 +20,5 @@ def check(msg):
         buffer.append(msg + ': ' + str(time.time() - starttime))
         
 def show_output():
-    if not deployconfig.get('debug'): return
     if buffer:
-        for l in buffer: print l
+        for l in buffer: logger.debug(l)

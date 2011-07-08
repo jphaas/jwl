@@ -111,15 +111,11 @@ def save_resource(name, version, value, delete_old = True):
             if key < version: del name_cache[key] 
 
 def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_old = True):
-    # print 'in fetch_cache_resource for ' + name + ' ' + str(version)
     def do_fetch_once():
-        # print 'in do_fetch_once'
         if gwaiting_on.has_key((name, version)):
-            # print 'already fetching, waiting'
             gwaiting_on[(name, version)].append((get_resume_cb(), get_current_name()))
             return yield_til_resume()
         else:
-            # print 'calling the function'
             gwaiting_on[(name, version)] = []
             result = fetcher(version)
             save_resource(name, version, result, delete_old)
@@ -130,10 +126,8 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
     if gresource_cache.has_key(name):
         name_cache = gresource_cache[name]
         if name_cache.has_key(version):
-            # print 'found, returning'
             return name_cache[version]
         elif return_old_okay:
-            # print 'going with old, returning'
             old_ver = max(name_cache.keys())
             do_later_event_loop(do_fetch_once, 'fetch ' + name + ' ' + str(version))
             return name_cache[old_ver]        
@@ -183,20 +177,19 @@ def do_later_event_loop(func, name = None):
 class NonRequest:
     def timecall(self, gr, value):
         nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
-        # print 'event loop - entering - ' + nm
+        logger.debug('event loop - entering - ' + nm)
         try:
             start = time.time()
             gr.parent = greenlet.getcurrent()
             gr.switch(value)
             end = time.time()
             dif = end - start
-            # if dif > .01:
-                # log(1, 'Taking too long: ' + nm + ': ' + str(dif), {})
-            #DISABLING THIS, BECAUSE COULD GET CIRCULAR WITH LOG FUNCTION
+            if dif > .01:
+                logger.warn('Taking too long: ' + nm + ': ' + str(dif))
         except Exception, e:
             log(1, 'EXCEPTION in ' + nm + ': ' + str(e.message) + '\n\n' + traceback.format_exc(), {})
         finally:
-            # print 'event loop - exiting - ' + nm
+            logger.debug('event loop - exiting - ' + nm)
             pass
         
 nonrequest = NonRequest()
@@ -231,8 +224,6 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             check('event loop - entering - ' + nm)
             gr.parent = greenlet.getcurrent()
             gr.switch(value)
-            # print 'line ', gr.gr_frame.f_lineno
-            # print traceback.format_stack(gr.gr_frame)
             end = time.time()
             dif = end - starttime
             check('event loop - exiting - ' + nm)
@@ -255,7 +246,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                 method = filter(lambda m: m.__name__ == self.get_argument('method'), self.get_method_list())[0]
             except IndexError:
                 raise Exception('invalid method name: ' + self.get_argument('method'))
-            logging.info(method.__name__ + repr(inspect.getargspec(method)))
+            logger.debug(method.__name__ + ' ' + repr(inspect.getargspec(method)))
             arglist = self.get_arglist(method)
                           
             args = dict((argname, deserialize(self.get_argument(argname), argname) if i.has_key(argname) else None) for argname in arglist)
