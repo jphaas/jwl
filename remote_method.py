@@ -230,11 +230,15 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             show_output()
             self.log_time(nm, dif, gr)
         except Exception, e:
-            r = self.handle_exception(e, nm)
-            self.write(self.serialize(r))
-            self.finish()
+            self._exception_handler(e, nm)
         finally:
             pass
+            
+    def _exception_handler(self, e, name):
+        r = self.handle_exception(e, name)
+        if not self._finished:
+            self.write(self.serialize(r))
+            self.finish()
     
     def _handle(self):
         method = None
@@ -267,9 +271,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             self.timecall(gr, None)           
 
         except Exception, e:
-            r = self.handle_exception(e, method.__name__)
-            self.write(self.serialize(r))
-            self.finish()          
+            self._exception_handler(e, method.__name__)      
         
     @staticmethod
     def get_arglist(method):
