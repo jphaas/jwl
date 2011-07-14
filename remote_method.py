@@ -235,6 +235,8 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             pass
             
     def _exception_handler(self, e, name):
+        if str(e) == 'Stream is closed': #I have an open stackoverflow question to see if this is an appropriate way of handling it
+            return
         r = self.handle_exception(e, name)
         if not self._finished:
             self.write(self.serialize(r))

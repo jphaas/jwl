@@ -1,5 +1,6 @@
 import boto.sdb.connection
 import boto.s3.connection
+import boto.ses.connection
 import tornado.httpclient
 import tornado.ioloop
 import urlparse
@@ -22,6 +23,8 @@ class AsyncHttpResponse(object):
             raise Exception('Missing buffer:\nStatus:\n' + str(status) + '\nbody:\n' + str(body) + '\nheaders:\n' + str(headers))
         self.msg = mimetools.Message(buffer)
     def read(self, bytes = -1):
+        if bytes == -1:
+            self.buffer.seek(0)
         return self.buffer.read(bytes)
     def getheader(self, name, default=None):
         return self.headers.get(name,default)
@@ -89,5 +92,8 @@ class AsyncSDBConnection(AsyncConnectionMixin,boto.sdb.connection.SDBConnection)
     pass
     
 class AsyncS3Connection(AsyncConnectionMixin, boto.s3.connection.S3Connection):
+    pass
+    
+class AsyncSESConnection(AsyncConnectionMixin, boto.ses.connection.SESConnection):
     pass
     
