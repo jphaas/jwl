@@ -288,9 +288,9 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         output.append('var allfuncs = {};')
         output.append('')
         for method in self.get_method_list():
-            output.append('function %s(%s)'%(method.__name__, ', '.join(self.get_arglist(method) + ['callback'])))
+            output.append('function %s(%s)'%(method.__name__, ', '.join(self.get_arglist(method) + ['callback', 'errorback'])))
             output.append('{')
-            output.append("method_call('%s', {%s}, callback);"%(method.__name__, ', '.join("'%s': %s"%(a, a) for a in self.get_arglist(method))))
+            output.append("method_call('%s', {%s}, callback, errorback);"%(method.__name__, ', '.join("'%s': %s"%(a, a) for a in self.get_arglist(method))))
             output.append('}')
             output.append("allfuncs['%s'] = %s;"%(method.__name__, method.__name__))
             output.append('')
