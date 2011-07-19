@@ -10,15 +10,19 @@ class AuthMixin:
     def get_the_user(self):
         """Returns None if not found"""
         s = self.get_secure_cookie('login_session')
-        if s:
+        clear = True
+        try:
+            if not s: return None
             user = session.get_data('login_' + s)
             if not user: return None
             if session.get_data('user_' + user) != s: return None #Make sure only one session per user is valid at any given time
             exp = session.get_data('expiration_' + s)
             if exp and time.time() > exp:
                 return None
+            clear = False    
             return user
-        return None
+        finally:
+            if clear: self.clear_cookie('login_session')
 
     def set_the_user(self, user, expires):
         self.clear_the_user()
