@@ -234,6 +234,12 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         finally:
             pass
             
+    def set_timeout(self, delay, returnValue): #if the call hasn't returned by the time the delay expires, ends function and returns the return value
+        def callback():
+            if not self._finished:
+                self.async_finish(returnValue)
+        tornado.ioloop.IOLoop.instance().add_timeout(time.time() + delay, callback)
+            
     def _exception_handler(self, e, name):
         if str(e) == 'Stream is closed': #I have an open stackoverflow question to see if this is an appropriate way of handling it
             return
