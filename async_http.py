@@ -55,12 +55,7 @@ class AsyncHttpConnection(object):
         self.data += data
 
     def _callback(self, cb, tornado_response):
-        # if tornado_response.code == 599:
-            # raise Exception('599 response: network error')
-        if tornado_response.error is not None:
-            tornado_response.rethrow()
-        response = AsyncHttpResponse(tornado_response.code, "???", tornado_response.body, tornado_response.buffer, tornado_response.headers)
-        cb(response)
+        cb(tornado_response)
         
     def getresponse(self):
         http_client = tornado.httpclient.AsyncHTTPClient()
@@ -73,7 +68,10 @@ class AsyncHttpConnection(object):
         
         cb = remote_method.get_resume_cb()
         http_client.fetch(request, functools.partial(self._callback, cb))
-        response = remote_method.yield_til_resume()
+        tornado_response = remote_method.yield_til_resume()
+        # if tornado_response.error is not None:     #LET BOTO HANDLE ERRORS
+            # tornado_response.rethrow()
+        response = AsyncHttpResponse(tornado_response.code, "???", tornado_response.body, tornado_response.buffer, tornado_response.headers)
         return response
         
 class AsyncConnectionMixin(object):

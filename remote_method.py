@@ -258,10 +258,11 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                 method = filter(lambda m: m.__name__ == self.get_argument('method'), self.get_method_list())[0]
             except IndexError:
                 raise Exception('invalid method name: ' + self.get_argument('method'))
-            logger.debug(method.__name__ + ' ' + repr(inspect.getargspec(method)))
+            
             arglist = self.get_arglist(method)
                           
             args = dict((argname, deserialize(self.get_argument(argname), argname) if i.has_key(argname) else None) for argname in arglist)
+            logger.debug(method.__name__ + ' ' + repr(args))
             
             def do_it(_):
                 x = method(**args)
