@@ -336,6 +336,6 @@ class NoCacheStaticHandler(tornado.web.StaticFileHandler):
     def set_extra_headers(self, path):
         now = datetime.now()
         stamp = mktime(now.timetuple())
-        self.set_head("Date", formatdate(  timeval  = stamp, localtime  = False, usegmt   = True))
+        self.set_header("Date", formatdate(  timeval  = stamp, localtime  = False, usegmt   = True))
         if "v" not in self.request.arguments:
             self.set_header("Cache-Control", "no-cache")
