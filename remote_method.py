@@ -11,6 +11,11 @@ import weakref
 import Queue
 import threading
 from jwl.globaltimer import start, check, show_output
+from email.utils import formatdate
+from datetime import datetime
+from time import mktime
+
+
 
 from . import deployconfig
 from .authenticate import AuthMixin
@@ -327,3 +332,10 @@ def build_method_list(object):
     """utility function, introspects a given object to automatically build a method list for it containing all non-underscore method names"""
     return [getattr(object, name) for name in dir(object) if name[0] != '_' and name not in dir(HTTPHandler) and type(getattr(object, name)) is types.MethodType]
     
+class NoCacheStaticHandler(tornado.web.StaticFileHandler):
+    def set_extra_headers(self, path):
+        now = datetime.now()
+        stamp = mktime(now.timetuple())
+        self.set_head("Date", formatdate(  timeval  = stamp, localtime  = False, usegmt   = True))
+        if "v" not in self.request.arguments:
+            self.set_header("Cache-Control", "no-cache")
