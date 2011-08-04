@@ -178,9 +178,14 @@ def do_later_event_loop(func, name = None):
     if name is None: name = func.__name__
     tornado.ioloop.IOLoop.instance().add_callback(functools.partial(launch_on_greenlet, func, name = name))
     
+def insist_top():
+    if greenlet.getcurrent().parent is not None:
+        p = greenlet.getcurrent().parent
+        p.throw(Exception, 'this function should only be called from the top-most-greenlet', traceback.extract_stack(p.gr_frame))
     
 class NonRequest:
     def timecall(self, gr, value):
+        insist_top()
         nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
         logger.debug('event loop - entering - ' + nm)
         try:
@@ -200,8 +205,8 @@ class NonRequest:
 nonrequest = NonRequest()
     
 def launch_on_greenlet(func, name = None):
+    insist_top()
     if name is None: name = func.__name__
-    if greenlet.getcurrent().parent is not None: raise Exception('launch_on_greenlet should only be called from the top-most greenlet!')
     gr = greenlet.greenlet(lambda _: func())
     GreenletMapping[gr] = nonrequest
     GreenletNames[gr] = name
@@ -222,6 +227,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         self.finish()
             
     def timecall(self, gr, value):
+        insist_top()
         nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
         try:
             starttime = time.time()
@@ -271,14 +277,22 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             logger.debug(method.__name__ + ' ' + repr(args1))
             
             def do_it(_):
+#                 x = method(**args)
+#                 if not self._finished and not hasattr(method, 'remote_method_async'): 
+#                     if not hasattr(method, 'do_not_serialize'):
+#                         x = self.serialize(x)
+#                     self.write(x)
+#                     self.finish()
+#                 elif x is not None:
+#                     raise Exception('cannot both call self.ret and return non-None from the same method / cannot return non-None from an asynchronous method')  
                 x = method(**args)
-                if not self._finished and not hasattr(method, 'remote_method_async'): 
+                if not hasattr(method, 'remote_method_async'): 
                     if not hasattr(method, 'do_not_serialize'):
                         x = self.serialize(x)
                     self.write(x)
                     self.finish()
                 elif x is not None:
-                    raise Exception('cannot both call self.ret and return non-None from the same method / cannot return non-None from an asynchronous method')  
+                    raise Exception('cannot return non-None from an asynchronous method')  
             
             gr = greenlet.greenlet(do_it)
             GreenletMapping[gr] = self
@@ -286,7 +300,8 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             self.timecall(gr, None)           
 
         except Exception, e:
-            self._exception_handler(e, method.__name__)      
+            nm = method.__name__ if method and hasattr(method, '__name__') else 'no name detected'
+            self._exception_handler(e, nm)      
         
     @staticmethod
     def get_arglist(method):
