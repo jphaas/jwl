@@ -165,12 +165,12 @@ def do_later(func, t = 'task'):
     ensureThread(t)
     
 #executes function on a seperate thread, pausing the current operation until it returns
-def execute_async(func):
+def execute_async(func, t = 'callback'):
     cb = get_resume_cb()
     def do_it():
         ret = func()
         tornado.ioloop.IOLoop.instance().add_callback(lambda: cb(ret))
-    do_later(do_it, t = 'callback')
+    do_later(do_it, t=t)
     return yield_til_resume()
  
 #executes function on the main event loop, but at a seperate time.
