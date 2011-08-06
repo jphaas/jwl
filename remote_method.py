@@ -30,7 +30,7 @@ except ImportError:
         # For Google AppEngine
         from django.utils import simplejson as json
 
-logger = logging.getLogger('ajaxdisplay.HTTPHandler')
+logger = logging.getLogger('jwl.remote_method')
 
 class ExpectedException(Exception):
     """
@@ -79,10 +79,10 @@ def make_dummy_handler(subclass):
             pass
     return Handle()
     
-log = None
-def set_logger(logfunc):
-    global log
-    log = logfunc
+bug = None
+def set_bug(bugfunc):
+    global bug
+    bug = bugfunc
     
 GreenletMapping = weakref.WeakKeyDictionary()
 GreenletNames = weakref.WeakKeyDictionary()
@@ -152,7 +152,7 @@ def workerThread(thread_name):
             del threads[thread_name]
             break
         except Exception, e:
-            log(1, 'EXCEPTION IN workerThread: '  + str(e.message) + '\n\n' + traceback.format_exc(), {})
+            bug(e, dict(thread=thread_name))
         
 def ensureThread(thread_name):
     if threads.has_key(thread_name): return
@@ -197,7 +197,7 @@ class NonRequest:
             if dif > .01:
                 logger.warn('Taking too long: ' + nm + ': ' + str(dif))
         except Exception, e:
-            log(1, 'EXCEPTION in ' + nm + ': ' + str(e.message) + '\n\n' + traceback.format_exc(), {})
+            bug(e, dict(method=nm))
         finally:
             logger.debug('event loop - exiting - ' + nm)
             pass
