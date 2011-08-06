@@ -324,7 +324,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             output.append('')
         return '\n'.join(output)
     
-    def handle_exception(self):
+    def handle_exception(self, e, name):
         raise Exception('no exception handler defined -- overwrite handle_exception')
         
     def log_time(self, nm, dif, gr):
