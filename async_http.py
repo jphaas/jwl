@@ -9,6 +9,8 @@ import hashlib
 import remote_method
 import mimetools
 from jwl.globaltimer import check, show_output
+from boto.connection import AWSAuthConnection
+
 
 import greenlet
 
@@ -30,10 +32,11 @@ class AsyncHttpResponse(object):
         return self.headers.get(name,default)
 
 class AsyncHttpConnection(object):
-    def __init__(self):      
+    def __init__(self, owner):      
         self.host = None
         self.is_secure = None
         self.headers = {}
+        self.owner = owner
         
     def request(self, method, path, data, headers):
         self.method = method
@@ -58,6 +61,11 @@ class AsyncHttpConnection(object):
         cb(tornado_response)
         
     def getresponse(self):
+        cb = remote_method.get_resume_cb()
+        if cb is None:  #can't make an async call, so do it syncronously AWSAuthConnection
+            con = AWSAuthConnection.get_http_connection(self.owner, self.host, self.is_secure)
+            con.request(self.method, self.path, self.data, self.headers)
+            return con.getresponse()
         http_client = tornado.httpclient.AsyncHTTPClient()
         if self.is_secure:
             schema = "https"
@@ -66,7 +74,7 @@ class AsyncHttpConnection(object):
         url = "%s://%s%s" % (schema, self.host, self.path)
         request = tornado.httpclient.HTTPRequest(url,self.method, self.headers, self.data or None, request_timeout=120)
         
-        cb = remote_method.get_resume_cb()
+        
         http_client.fetch(request, functools.partial(self._callback, cb))
         tornado_response = remote_method.yield_til_resume()
         # if tornado_response.error is not None:     #LET BOTO HANDLE ERRORS
@@ -77,7 +85,7 @@ class AsyncHttpConnection(object):
 class AsyncConnectionMixin(object):
     def get_http_connection(self, host, is_secure):
         if not hasattr(self, "_async_http_connection"):
-            self._async_http_connection = AsyncHttpConnection()
+            self._async_http_connection = AsyncHttpConnection(self)
         self._async_http_connection.host = host
         self._async_http_connection.is_secure = is_secure
         return self._async_http_connection

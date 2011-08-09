@@ -20,7 +20,9 @@ class Store:
             if k not in self.cols:
                 self.conn.execute('alter table ' + self.table + ' add column "' + k + '" ' + guess_type(v))
                 self.cols.append(k)
-        self.conn.execute('insert into ' + self.table + '(%s) VALUES (%s)'%(', '.join(row.keys()), ', '.join(row.values())))
+        self.conn.execute('insert into ' + self.table + '(%s) VALUES (%s)'%(', '.join(['"' + k + '"' for k in row.keys()]), ', '.join(['?' for v in row.values()])),
+                row.values())
 
+    
         
     table = 'data'

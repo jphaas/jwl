@@ -89,6 +89,8 @@ GreenletNames = weakref.WeakKeyDictionary()
     
 def get_resume_cb():
     gr = greenlet.getcurrent()
+    if not GreenletMapping.has_key(gr):
+        return None
     handler = GreenletMapping[gr]
     def cb(value):
         handler.timecall(gr, value)
@@ -118,7 +120,9 @@ def save_resource(name, version, value, delete_old = True):
 def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_old = True):
     def do_fetch_once():
         if gwaiting_on.has_key((name, version)):
-            gwaiting_on[(name, version)].append((get_resume_cb(), get_current_name()))
+            grc = get_resume_cb()
+            if not grc: raise Exception('could not generate callback; probably means not on child greenlet')
+            gwaiting_on[(name, version)].append((grc, get_current_name()))
             return yield_til_resume()
         else:
             gwaiting_on[(name, version)] = []
@@ -167,6 +171,7 @@ def do_later(func, t = 'task'):
 #executes function on a seperate thread, pausing the current operation until it returns
 def execute_async(func, t = 'callback'):
     cb = get_resume_cb()
+    if not cb: raise Exception('no callback found; probably means not inside a child greenlet')
     def do_it():
         ret = func()
         tornado.ioloop.IOLoop.instance().add_callback(lambda: cb(ret))
