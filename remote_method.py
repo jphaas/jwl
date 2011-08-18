@@ -186,7 +186,7 @@ def do_later_event_loop(func, name = None):
 def insist_top():
     if greenlet.getcurrent().parent is not None:
         p = greenlet.getcurrent().parent
-        p.throw(Exception, 'this function should only be called from the top-most-greenlet', traceback.extract_stack(p.gr_frame))
+        p.throw(Exception, 'this function should only be called from the top-most-greenlet')
     
 class NonRequest:
     def timecall(self, gr, value):
@@ -269,11 +269,17 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         try:
             i = self.request.arguments
             if not i.has_key('method'):
-                raise Exception('"method" not found in get / post data')
+                sp = self.request.uri.split('api/')
+                if len(sp) > 1:
+                    methodname = sp[1].split('?')[0]
+                else:
+                    raise Exception('"method" not found in get / post data')
+            else:
+                methodname = self.get_argument('method')
             try:
-                method = filter(lambda m: m.__name__ == self.get_argument('method'), self.get_method_list())[0]
+                method = filter(lambda m: m.__name__ == methodname, self.get_method_list())[0]
             except IndexError:
-                raise Exception('invalid method name: ' + self.get_argument('method'))
+                raise Exception('invalid method name: ' + methodname)
             
             arglist = self.get_arglist(method)
                           
