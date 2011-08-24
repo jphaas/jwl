@@ -14,6 +14,7 @@ from jwl.globaltimer import start, check, show_output
 from email.utils import formatdate
 from datetime import datetime
 from time import mktime
+import decimal
 
 
 
@@ -343,15 +344,17 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     
     @staticmethod
     def serialize(obj):
-        nonamed = convert_namedtuples(obj)
+        nonamed = convert_types(obj)
         return json.dumps(nonamed)
 
-def convert_namedtuples(obj):
+def convert_types(obj): #cleans up namedtuples and decimals into serializable things
     if hasattr(obj, '_asdict'): return convert_namedtuples(obj._asdict())
     if isinstance(obj, dict):
         return dict((key, convert_namedtuples(value)) for key, value in obj.iteritems())
     if isinstance(obj, list) or isinstance(obj, tuple):
         return [convert_namedtuples(v) for v in obj]
+    if isinstance(obj, decimal.Decimal):
+        return float(obj)
     return obj        
        
 def build_method_list(object):
