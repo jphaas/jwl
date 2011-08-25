@@ -67,14 +67,14 @@ class AsyncHttpConnection(object):
         cb = remote_method.get_resume_cb()
         if cb is None:  #can't make an async call, so do it syncronously AWSAuthConnection
             con = AWSAuthConnection.get_http_connection(self.owner, self.host, self.is_secure)
-            con.request(self.method, self.path, self.data, self.headers)
+            con.request(self.method, str(self.path), self.data, self.headers)
             return con.getresponse()
         http_client = tornado.httpclient.AsyncHTTPClient()
         if self.is_secure:
             schema = "https"
         else:
             schema = "http"
-        url = "%s://%s%s" % (schema, self.host, self.path)
+        url = str("%s://%s%s" % (schema, self.host, self.path))
         request = tornado.httpclient.HTTPRequest(url,self.method, self.headers, self.data or '', request_timeout=120)
         
         
