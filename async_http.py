@@ -42,7 +42,10 @@ class AsyncHttpConnection(object):
         self.method = method
         self.path = path
         self.data = data
-        self.headers = headers     
+        self.headers = headers  
+
+    def close(self): #does nothing, exists for compatibility
+        pass
 
     def putrequest(self, method, path):
         self.method = method
