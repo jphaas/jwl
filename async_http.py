@@ -75,7 +75,7 @@ class AsyncHttpConnection(object):
         else:
             schema = "http"
         url = "%s://%s%s" % (schema, self.host, self.path)
-        request = tornado.httpclient.HTTPRequest(url,self.method, self.headers, self.data or None, request_timeout=120)
+        request = tornado.httpclient.HTTPRequest(url,self.method, self.headers, self.data or '', request_timeout=120)
         
         
         http_client.fetch(request, functools.partial(self._callback, cb))

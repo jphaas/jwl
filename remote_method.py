@@ -187,7 +187,10 @@ def do_later_event_loop(func, name = None):
 def insist_top():
     if greenlet.getcurrent().parent is not None:
         p = greenlet.getcurrent().parent
-        p.throw(Exception, 'this function should only be called from the top-most-greenlet')
+        s= ''
+        if p.gr_frame:
+            s = ''.join(traceback.format_stack(p.gr_frame))
+        p.throw(Exception, 'this function should only be called from the top-most-greenlet.  Stack trace of parent: ' + s)
     
 class NonRequest:
     def timecall(self, gr, value):
