@@ -41,6 +41,14 @@ class ExpectedException(Exception):
     display a vague "Unexpected server error" message
     """
     pass
+    
+class SpecialException(Exception):
+    """
+    Represents an exception that should interrupt normal client error-handling;
+    it's a way of sending messages to the client that break out of the standard
+    call stack.
+    """
+    pass
 
     
 def asynchronous(func):
