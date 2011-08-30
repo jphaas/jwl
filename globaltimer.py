@@ -16,7 +16,7 @@ def start():
 def check(msg):
     if starttime is not None:
         # buffer.append(msg + ': ' + str(time.time() - starttime))
-        logger.debug(msg + ': ' + str(time.time() - starttime))
+        logger.debug(msg + ': ' + str(round(time.time() - starttime, 3)))
         
 def show_output():
     # if buffer:
