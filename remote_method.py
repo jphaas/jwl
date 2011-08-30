@@ -93,6 +93,10 @@ def set_bug(bugfunc):
     global bug
     bug = bugfunc
     
+def handle_callback_exception(self, callback):
+    bug(e)
+tornado.ioloop.IOLoop.instance().handle_callback_exception = handle_callback_exception
+    
 GreenletMapping = weakref.WeakKeyDictionary()
 GreenletNames = weakref.WeakKeyDictionary()
     
