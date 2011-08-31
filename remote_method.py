@@ -96,7 +96,7 @@ def set_bug(bugfunc):
     
 def handle_callback_exception(self, callback):
     bug(e)
-tornado.ioloop.IOLoop.instance().handle_callback_exception = handle_callback_exception
+tornado.ioloop.IOLoop.handle_callback_exception = handle_callback_exception
     
 GreenletMapping = weakref.WeakKeyDictionary()
 GreenletNames = weakref.WeakKeyDictionary()
@@ -247,6 +247,13 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     def async_finish(self, return_value):
         self.write(self.serialize(return_value))
         self.finish()
+        
+#     def _handle_request_exception(self, e):
+#         if isinstance(e, HTTPError):
+#             tornado.web.RequestHandler._handle_request_exception(self, e)
+#         else:
+#             bug(e)
+#             self.send_error(500, exception=e)
             
     def timecall(self, gr, value):
         insist_top()

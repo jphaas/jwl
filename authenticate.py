@@ -17,7 +17,7 @@ class AuthMixin:
             if not s: return None
             user = session.get_data('login_' + s)
             if not user: return None
-            if session.get_data('user_' + user) != s: return None #Make sure only one session per user is valid at any given time
+            # if session.get_data('user_' + user) != s: return None #Make sure only one session per user is valid at any given time
             exp = session.get_data('expiration_' + s)
             if exp and time.time() > exp:
                 return None
@@ -33,15 +33,15 @@ class AuthMixin:
         self.set_secure_cookie('login_session', new_session, expires_days = None if expires else 365)
         session.set_data('login_' + new_session, user)
         session.set_data('expiration_' + new_session, time.time() + 60 * 60 * 24 if expires else None)
-        session.set_data('user_' + user, new_session) #Make sure only one session per user is valid at any given time
+        # session.set_data('user_' + user, new_session) #Make sure only one session per user is valid at any given time
 
     def clear_the_user(self):
         if hasattr(self, '_user_set_on_this_request'): del self._user_set_on_this_request
         user = self.get_the_user()
-        if user:
-            session.clear_data('user_' + user)
-        s = self.get_secure_cookie('login_session')
-        if s:
-            session.clear_data('login_' + s)
-            session.clear_data('expiration_' + s)
+#         if user:
+#             session.clear_data('user_' + user)
+#         s = self.get_secure_cookie('login_session')
+#         if s:
+#             session.clear_data('login_' + s)
+#             session.clear_data('expiration_' + s)
         self.clear_cookie('login_session')
