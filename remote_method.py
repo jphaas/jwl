@@ -16,6 +16,8 @@ from email.utils import formatdate
 from datetime import datetime, date
 from time import mktime
 import decimal
+import sys
+from tornado.web import HTTPError
 
 
 
@@ -95,7 +97,7 @@ def set_bug(bugfunc):
     bug = bugfunc
     
 def handle_callback_exception(self, callback):
-    bug(e)
+    bug(sys.exc_info()[1])
 tornado.ioloop.IOLoop.handle_callback_exception = handle_callback_exception
     
 GreenletMapping = weakref.WeakKeyDictionary()
@@ -248,12 +250,12 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         self.write(self.serialize(return_value))
         self.finish()
         
-#     def _handle_request_exception(self, e):
-#         if isinstance(e, HTTPError):
-#             tornado.web.RequestHandler._handle_request_exception(self, e)
-#         else:
-#             bug(e)
-#             self.send_error(500, exception=e)
+    def _handle_request_exception(self, e):
+        if isinstance(e, HTTPError):
+            tornado.web.RequestHandler._handle_request_exception(self, e)
+        else:
+            bug(e)
+            self.send_error(500, exception=e)
             
     def timecall(self, gr, value):
         insist_top()
