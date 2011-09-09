@@ -52,6 +52,12 @@ class SpecialException(Exception):
     call stack.
     """
     pass
+    
+class Send304Exception(Exception):
+    """
+    Send a not-modified response to the client
+    """
+    pass
 
     
 def asynchronous(func):
@@ -119,8 +125,8 @@ def yield_til_resume():
     return greenlet.getcurrent().parent.switch()
             
 gresource_cache = {}
-
 gwaiting_on = {}
+modified_cache = {}
 
 def save_resource(name, version, value, delete_old = True):
     if gresource_cache.has_key(name):
@@ -129,17 +135,31 @@ def save_resource(name, version, value, delete_old = True):
         name_cache = {}
         gresource_cache[name] = name_cache
     name_cache[version] = value
+    modified_cache[str(name) + '_' + str(version) + '_modified'] = time.time()
     if delete_old:
         for key in name_cache.keys():
             if key < version: del name_cache[key] 
 
-def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_old = True):
+def _modified(last_modified, handler):
+    ims_value = handler.request.headers.get("If-Modified-Since")
+    if ims_value is not None:
+        date_tuple = email.utils.parsedate(ims_value)
+        if_since = datetime.datetime.fromtimestamp(time.mktime(date_tuple))
+        if if_since >= datetime.fromtimestamp(last_modified):
+            raise Send304Exception()
+    handler.set_header("Date", formatdate(timeval = stamp, localtime = False, usegmt = True))
+    handler.set_header('Last-Modified', formatdate(timeval = last_modified, localtime = False, usegmt = True))
+
+#if handler is set, sets the last-modified header on handler and raises a 304 exception if appropriate
+def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_old = True, handler=None):
     def do_fetch_once():
         if gwaiting_on.has_key((name, version)):
             grc = get_resume_cb()
             if not grc: raise Exception('could not generate callback; probably means not on child greenlet')
             gwaiting_on[(name, version)].append((grc, get_current_name()))
-            return yield_til_resume()
+            ret = yield_til_resume()
+            if handler: _modified(modified_cache[str(name) + '_' + str(version) + '_modified'], handler)
+            return ret
         else:
             gwaiting_on[(name, version)] = []
             result = fetcher(version)
@@ -147,14 +167,17 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
             for cb, nm in gwaiting_on[(name, version)]:
                 do_later_event_loop(functools.partial(cb, result), nm)
             del gwaiting_on[(name, version)]
+            if handler: _modified(modified_cache[str(name) + '_' + str(version) + '_modified'], handler)
             return result
     if gresource_cache.has_key(name):
         name_cache = gresource_cache[name]
         if name_cache.has_key(version):
+            if handler: _modified(modified_cache[str(name) + '_' + str(version) + '_modified'], handler)
             return name_cache[version]
         elif return_old_okay:
             old_ver = max(name_cache.keys())
             do_later_event_loop(do_fetch_once, 'fetch ' + name + ' ' + str(version))
+            if handler: _modified(modified_cache[str(name) + '_' + str(old_ver) + '_modified'], handler)
             return name_cache[old_ver]        
     return do_fetch_once()
         
@@ -322,7 +345,12 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
 #                     self.finish()
 #                 elif x is not None:
 #                     raise Exception('cannot both call self.ret and return non-None from the same method / cannot return non-None from an asynchronous method')  
-                x = method(**args)
+                try:
+                    x = method(**args)
+                except Send304Exception:
+                    self.set_status(304)
+                    self.finish()
+                    
                 if not hasattr(method, 'remote_method_async'): 
                     if not hasattr(method, 'do_not_serialize'):
                         x = self.serialize(x)
@@ -392,6 +420,6 @@ class NoCacheStaticHandler(tornado.web.StaticFileHandler):
     def set_extra_headers(self, path):
         now = datetime.now()
         stamp = mktime(now.timetuple())
-        self.set_header("Date", formatdate(  timeval  = stamp, localtime  = False, usegmt   = True))
+        self.set_header("Date", formatdate(timeval = stamp, localtime = False, usegmt = True))
         if "v" not in self.request.arguments:
             self.set_header("Cache-Control", "no-cache")
