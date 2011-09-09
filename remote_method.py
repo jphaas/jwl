@@ -18,6 +18,7 @@ from time import mktime
 import decimal
 import sys
 from tornado.web import HTTPError
+import email.utils
 
 
 
@@ -67,6 +68,12 @@ def asynchronous(func):
 def no_serialize(func):
     func.do_not_serialize = True
     return func
+    
+def http_method(method):
+    def modifier(func):
+        func._http_type = method
+        return func
+    return modifier
 
 #Takes a single json item or a list of json items
 #deserializes from json
@@ -144,10 +151,11 @@ def _modified(last_modified, handler):
     ims_value = handler.request.headers.get("If-Modified-Since")
     if ims_value is not None:
         date_tuple = email.utils.parsedate(ims_value)
-        if_since = datetime.datetime.fromtimestamp(time.mktime(date_tuple))
+        if_since = datetime.fromtimestamp(time.mktime(date_tuple))
+        # print 'about to compare', if_since, datetime.fromtimestamp(last_modified)
         if if_since >= datetime.fromtimestamp(last_modified):
             raise Send304Exception()
-    handler.set_header("Date", formatdate(timeval = stamp, localtime = False, usegmt = True))
+    handler.set_header("Date", formatdate(timeval = time.time(), localtime = False, usegmt = True))
     handler.set_header('Last-Modified', formatdate(timeval = last_modified, localtime = False, usegmt = True))
 
 #if handler is set, sets the last-modified header on handler and raises a 304 exception if appropriate
@@ -350,6 +358,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                 except Send304Exception:
                     self.set_status(304)
                     self.finish()
+                    return
                     
                 if not hasattr(method, 'remote_method_async'): 
                     if not hasattr(method, 'do_not_serialize'):
@@ -381,9 +390,14 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         output.append('var allfuncs = {};')
         output.append('')
         for method in self.get_method_list():
+            if hasattr(method, '_http_type'):
+                type = method._http_type
+            else:
+                type = 'POST'
             output.append('function %s(%s)'%(method.__name__, ', '.join(self.get_arglist(method) + ['callback', 'errorback'])))
             output.append('{')
-            output.append("method_call('%s', {%s}, callback, errorback);"%(method.__name__, ', '.join("'%s': %s"%(a, a) for a in self.get_arglist(method))))
+            output.append("var type = '%s';"%type)
+            output.append("method_call('%s', {%s}, callback, errorback, type);"%(method.__name__, ', '.join("'%s': %s"%(a, a) for a in self.get_arglist(method))))
             output.append('}')
             output.append("allfuncs['%s'] = %s;"%(method.__name__, method.__name__))
             output.append('')
