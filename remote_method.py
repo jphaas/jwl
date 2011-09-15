@@ -278,8 +278,9 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     def post(self):
         self._handle()
     def async_finish(self, return_value):
-        self.write(self.serialize(return_value))
-        self.finish()
+        if not self._finished:
+            self.write(self.serialize(return_value))
+            self.finish()
         
     def _handle_request_exception(self, e):
         if isinstance(e, HTTPError):
@@ -344,17 +345,10 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             args1 = dict((k, v if k not in ('pw', 'password') else '****') for k, v in args.iteritems()) 
             logger.debug(method.__name__ + ' ' + repr(args1))
             
-            def do_it(_):
-#                 x = method(**args)
-#                 if not self._finished and not hasattr(method, 'remote_method_async'): 
-#                     if not hasattr(method, 'do_not_serialize'):
-#                         x = self.serialize(x)
-#                     self.write(x)
-#                     self.finish()
-#                 elif x is not None:
-#                     raise Exception('cannot both call self.ret and return non-None from the same method / cannot return non-None from an asynchronous method')  
+            def do_it(_): 
                 try:
                     x = method(**args)
+                    self.postprocess()
                 except Send304Exception:
                     self.set_status(304)
                     self.finish()
@@ -363,8 +357,9 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                 if not hasattr(method, 'remote_method_async'): 
                     if not hasattr(method, 'do_not_serialize'):
                         x = self.serialize(x)
-                    self.write(x)
-                    self.finish()
+                    if not self._finished:
+                        self.write(x)
+                        self.finish()
                 elif x is not None:
                     raise Exception('cannot return non-None from an asynchronous method')  
             
