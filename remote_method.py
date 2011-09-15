@@ -287,7 +287,8 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             tornado.web.RequestHandler._handle_request_exception(self, e)
         else:
             bug(e)
-            self.send_error(500, exception=e)
+            if not self._finished:
+                self.send_error(500, exception=e)
             
     def timecall(self, gr, value):
         insist_top()
