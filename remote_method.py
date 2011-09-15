@@ -173,7 +173,7 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
             result = fetcher(version)
             save_resource(name, version, result, delete_old)
             for cb, nm in gwaiting_on[(name, version)]:
-                do_later_event_loop(functools.partial(cb, result), nm)
+                do_later_event_loop(functools.partial(cb, result), str(nm) + " - called back by completed resource fetch")
             del gwaiting_on[(name, version)]
             if handler: _modified(modified_cache[str(name) + '_' + str(version) + '_modified'], handler)
             return result
