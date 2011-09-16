@@ -287,8 +287,11 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             tornado.web.RequestHandler._handle_request_exception(self, e)
         else:
             bug(e)
-            if not self._finished:
+            if not self._finished and not hasattr(self, '_dead'):
                 self.send_error(500, exception=e)
+                
+    def on_connection_close(self):
+        self._dead = True
             
     def timecall(self, gr, value):
         insist_top()
