@@ -311,7 +311,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             
     def set_timeout(self, delay, returnValue): #if the call hasn't returned by the time the delay expires, ends function and returns the return value
         def callback():
-            if not self._finished:
+            if not self._finished and not hasattr(self, '_dead'):
                 self.async_finish(returnValue)
         tornado.ioloop.IOLoop.instance().add_timeout(time.time() + delay, callback)
             
