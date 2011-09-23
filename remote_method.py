@@ -135,7 +135,7 @@ def yield_til_resume():
 def run_on_gr(func):
     def do_it(_):
         return func()
-    return greenlet.greenlet(gr).switch()
+    return greenlet.greenlet(do_it).switch(None)
        
        
 ###
@@ -314,8 +314,8 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                     self.postprocess()
                     
                     if not hasattr(method, 'remote_method_async'): 
-                       if not hasattr(method, 'do_not_serialize'):
-                           x = self.serialize(x)
+                        if not hasattr(method, 'do_not_serialize'):
+                            x = self.serialize(x)
                         if not self._finished:
                             self.write(x)
                             self.finish()
