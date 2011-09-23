@@ -353,19 +353,21 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                 try:
                     x = method(**args)
                     self.postprocess()
+                    
+                    if not hasattr(method, 'remote_method_async'): 
+                       if not hasattr(method, 'do_not_serialize'):
+                           x = self.serialize(x)
+                        if not self._finished:
+                            self.write(x)
+                            self.finish()
+                    elif x is not None:
+                        raise Exception('cannot return non-None from an asynchronous method')  
                 except Send304Exception:
                     self.set_status(304)
                     self.finish()
-                    return
+                except Exception, e:
+                    self._exception_handler(e, nm)
                     
-                if not hasattr(method, 'remote_method_async'): 
-                    if not hasattr(method, 'do_not_serialize'):
-                        x = self.serialize(x)
-                    if not self._finished:
-                        self.write(x)
-                        self.finish()
-                elif x is not None:
-                    raise Exception('cannot return non-None from an asynchronous method')  
             
             gr = greenlet.greenlet(do_it)
             GreenletMapping[gr] = self
