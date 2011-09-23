@@ -36,6 +36,7 @@ except ImportError:
         from django.utils import simplejson as json
 
 logger = logging.getLogger('jwl.remote_method')
+buglogger = logging.getLogger('keyword.bugs')
 
 class ExpectedException(Exception):
     """
@@ -59,12 +60,13 @@ class Send304Exception(Exception):
     Send a not-modified response to the client
     """
     pass
-
     
-def asynchronous(func):
-    func.remote_method_async = True
-    return func
-    
+class CannotResumeException(Exception):
+    """
+    For sending an exception to a greenlet thread to notify it that it will never get the value that it is waiting on
+    """
+    pass
+       
 def no_serialize(func):
     func.do_not_serialize = True
     return func
@@ -110,27 +112,32 @@ def set_bug(bugfunc):
     bug = bugfunc
     
 def handle_callback_exception(self, callback):
+    buglogger.error('WARNING: something slipped through to the main tornado loop!')
     bug(sys.exc_info()[1])
 tornado.ioloop.IOLoop.handle_callback_exception = handle_callback_exception
-    
-GreenletMapping = weakref.WeakKeyDictionary()
-GreenletNames = weakref.WeakKeyDictionary()
-    
+       
 def get_resume_cb():
     gr = greenlet.getcurrent()
-    if not GreenletMapping.has_key(gr):
-        return None
-    handler = GreenletMapping[gr]
-    def cb(value):
-        handler.timecall(gr, value)
+    def cb(value, success=True):
+        if success:
+            gr.switch(value)
+        else:
+            gr.throw(CannotResumeException, value)
     return cb
-    
-def get_current_name():
-    return GreenletNames[greenlet.getcurrent()]
-    
+       
 def yield_til_resume():
     return greenlet.getcurrent().parent.switch()
-            
+    
+def run_on_gr(func):
+    def do_it(_):
+        return func()
+    return greenlet.greenlet(gr).switch()
+       
+       
+###
+# CACHE MANAGEMENT
+###     
+
 gresource_cache = {}
 gwaiting_on = {}
 modified_cache = {}
@@ -189,6 +196,11 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
             return name_cache[old_ver]        
     return do_fetch_once()
         
+
+###
+# Thread queues and doing things later
+###
+
 queues = {}
 queues['task'] = Queue.Queue()
 queues['callback'] = Queue.Queue()
@@ -218,55 +230,33 @@ def do_later(func, t = 'task'):
 #executes function on a seperate thread, pausing the current operation until it returns
 def execute_async(func, t = 'callback'):
     cb = get_resume_cb()
-    if not cb: raise Exception('no callback found; probably means not inside a child greenlet')
     def do_it():
-        ret = func()
-        tornado.ioloop.IOLoop.instance().add_callback(lambda: cb(ret))
+        try:
+            ret = func()
+            tornado.ioloop.IOLoop.instance().add_callback(lambda: cb(ret))
+        except Exception, e:
+            bug(e)
+            tornado.ioloop.IOLoop.instance().add_callback(lambda: cb('execute_async function raised an exception', False))
     do_later(do_it, t=t)
     return yield_til_resume()
  
 #executes function on the main event loop, but at a seperate time.
-def do_later_event_loop(func, name = None):
-    if name is None: name = func.__name__
-    tornado.ioloop.IOLoop.instance().add_callback(functools.partial(launch_on_greenlet, func, name = name))
+def do_later_event_loop(func):
+    _dl_helper(func, tornado.ioloop.IOLoop.instance().add_callback)
     
-def insist_top():
-    if greenlet.getcurrent().parent is not None:
-        p = greenlet.getcurrent().parent
-        s= ''
-        if p.gr_frame:
-            s = ''.join(traceback.format_stack(p.gr_frame))
-        p.throw(Exception, 'this function should only be called from the top-most-greenlet.  Stack trace of parent: ' + s)
+#like do_later_event_loop except inserts a delay in seconds before executing    
+def do_later_timeout(self, delay, func):
+    _dl_helper(func, lambda cb: tornado.ioloop.IOLoop.instance().add_timeout(time.time() + delay, cb))
     
-class NonRequest:
-    def timecall(self, gr, value):
-        insist_top()
-        nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
-        logger.debug('event loop - entering - ' + nm)
+def _dl_helper(func, adder):
+    def do_it():
         try:
-            start = time.time()
-            gr.parent = greenlet.getcurrent()
-            gr.switch(value)
-            end = time.time()
-            dif = end - start
-            if dif > .01:
-                logger.warn('Taking too long: ' + nm + ': ' + str(dif))
+            func()
         except Exception, e:
-            bug(e, dict(method=nm))
-        finally:
-            logger.debug('event loop - exiting - ' + nm)
-            pass
-        
-nonrequest = NonRequest()
-    
-def launch_on_greenlet(func, name = None):
-    insist_top()
-    if name is None: name = func.__name__
-    gr = greenlet.greenlet(lambda _: func())
-    GreenletMapping[gr] = nonrequest
-    GreenletNames[gr] = name
-    nonrequest.timecall(gr, None)
-    
+            bug(e)
+    adder(lambda: run_on_gr(do_it))
+
+           
 class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     """  
     Override GetFunctionList() to provide the list of method to convert.
@@ -277,15 +267,12 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     @tornado.web.asynchronous
     def post(self):
         self._handle()
-    def async_finish(self, return_value):
-        if not self._finished:
-            self.write(self.serialize(return_value))
-            self.finish()
         
     def _handle_request_exception(self, e):
         if isinstance(e, HTTPError):
             tornado.web.RequestHandler._handle_request_exception(self, e)
         else:
+            buglogger.error('WARNING: something slipped through to the request default error handler!')
             bug(e)
             if not self._finished and not hasattr(self, '_dead'):
                 self.send_error(500, exception=e)
@@ -293,41 +280,9 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     def on_connection_close(self):
         self._dead = True
             
-    def timecall(self, gr, value):
-        insist_top()
-        nm = GreenletNames[gr] if GreenletNames.has_key(gr) else 'name missing'
-        try:
-            starttime = time.time()
-            start()
-            check('event loop - entering - ' + nm)
-            gr.parent = greenlet.getcurrent()
-            gr.switch(value)
-            end = time.time()
-            dif = end - starttime
-            check('event loop - exiting - ' + nm)
-            show_output()
-            self.log_time(nm, dif, gr)
-        except Exception, e:
-            self._exception_handler(e, nm)
-        finally:
-            pass
-            
-    def set_timeout(self, delay, returnValue): #if the call hasn't returned by the time the delay expires, ends function and returns the return value
-        def callback():
-            if not self._finished and not hasattr(self, '_dead'):
-                self.async_finish(returnValue)
-        tornado.ioloop.IOLoop.instance().add_timeout(time.time() + delay, callback)
-            
-    def _exception_handler(self, e, name):
-        if str(e) == 'Stream is closed': #I have an open stackoverflow question to see if this is an appropriate way of handling it
-            return
-        r = self.handle_exception(e, name)
-        if not self._finished:
-            self.write(self.serialize(r))
-            self.finish()
-    
     def _handle(self):
         method = None
+        methodname = "could not load method"
         try:
             i = self.request.arguments
             if not i.has_key('method'):
@@ -349,7 +304,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             args1 = dict((k, v if k not in ('pw', 'password') else '****') for k, v in args.iteritems()) 
             logger.debug(method.__name__ + ' ' + repr(args1))
             
-            def do_it(_): 
+            def do_it(): 
                 try:
                     x = method(**args)
                     self.postprocess()
@@ -366,17 +321,20 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                     self.set_status(304)
                     self.finish()
                 except Exception, e:
-                    self._exception_handler(e, nm)
-                    
-            
-            gr = greenlet.greenlet(do_it)
-            GreenletMapping[gr] = self
-            GreenletNames[gr] = method.__name__
-            self.timecall(gr, None)           
-
+                    if str(e) == 'Stream is closed': #I have an open stackoverflow question to see if this is an appropriate way of handling it
+                        return
+                    r = self.handle_exception(e, methodname)
+                    if not self._finished:
+                        self.write(self.serialize(r))
+                        self.finish()
+                                
+            run_on_gr(do_it)   
+                   
         except Exception, e:
-            nm = method.__name__ if method and hasattr(method, '__name__') else 'no name detected'
-            self._exception_handler(e, nm)      
+            r = self.handle_exception(e, methodname)
+            if not self._finished:
+                self.write(self.serialize(r))
+                self.finish()     
         
     @staticmethod
     def get_arglist(method):
@@ -406,10 +364,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     
     def handle_exception(self, e, name):
         raise Exception('no exception handler defined -- overwrite handle_exception')
-        
-    def log_time(self, nm, dif, gr):
-        raise Exception('no time logger defined -- overwite log_time')
-    
+            
     @staticmethod
     def serialize(obj):
         nonamed = convert_types(obj)
