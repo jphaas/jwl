@@ -80,10 +80,6 @@ def http_method(method):
         return func
     return modifier
     
-def asynchronous(func):
-    func.remote_method_async = True
-    return func
-
 #Takes a single json item or a list of json items
 #deserializes from json
 #then, if result is a dictionary with "datatype" set, does additional processing
@@ -275,7 +271,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     @tornado.web.asynchronous
     def post(self):
         self._handle()
-        
+                
     def _handle_request_exception(self, e):
         if isinstance(e, HTTPError):
             tornado.web.RequestHandler._handle_request_exception(self, e)
@@ -290,6 +286,23 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                 
     def on_connection_close(self):
         self._dead = True
+        
+    def async_wait(self):
+        self.async_set()
+        return yield_til_resume()
+        
+    def async_set(self):
+        self._gr_cb = get_resume_cb()
+        
+    def async_finish(self, result):
+        if hasattr(self, '_gr_cb') and self._gr_cb:
+            do_later_event_loop(functools.partial(self._gr_cb, result))
+            self._gr_cb = None    
+        
+    def set_timeout(self, delay, returnValue):
+        def callback():
+            self.async_finish(returnValue)
+        tornado.ioloop.IOLoop.instance().add_timeout(time.time() + delay, callback)
             
     def _handle(self):
         method = None
@@ -320,14 +333,12 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                     x = method(**args)
                     self.postprocess()
                     
-                    if not hasattr(method, 'remote_method_async'): 
-                        if not hasattr(method, 'do_not_serialize'):
-                            x = self.serialize(x)
-                        if not self._finished and not hasattr(self, '_dead'):
-                            self.write(x)
-                            self.finish()
-                    elif x is not None:
-                        raise Exception('cannot return non-None from an asynchronous method')  
+                    if not hasattr(method, 'do_not_serialize'):
+                        x = self.serialize(x)
+                    if not self._finished and not hasattr(self, '_dead'):
+                        self.write(x)
+                        self.finish()
+
                 except Send304Exception:
                     if not self._finished and not hasattr(self, '_dead'):
                         self.set_status(304)
