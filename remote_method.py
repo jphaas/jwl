@@ -66,6 +66,9 @@ class CannotResumeException(Exception):
     For sending an exception to a greenlet thread to notify it that it will never get the value that it is waiting on
     """
     pass
+    
+class GRWrapperException(Exception):
+    pass
        
 def no_serialize(func):
     func.do_not_serialize = True
@@ -123,6 +126,8 @@ tornado.ioloop.IOLoop.handle_callback_exception = handle_callback_exception
 def get_resume_cb():
     gr = greenlet.getcurrent()
     def cb(value, success=True):
+        if greenlet.getcurrent().parent != None:
+            raise Exception('Calling callback from within sub-greenlet!')
         if success:
             gr.switch(value)
         else:
@@ -174,8 +179,7 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
     def do_fetch_once():
         if gwaiting_on.has_key((name, version)):
             grc = get_resume_cb()
-            if not grc: raise Exception('could not generate callback; probably means not on child greenlet')
-            gwaiting_on[(name, version)].append((grc, get_current_name()))
+            gwaiting_on[(name, version)].append(grc)
             ret = yield_til_resume()
             if handler: _modified(modified_cache[str(name) + '_' + str(version) + '_modified'], handler)
             return ret
@@ -183,8 +187,8 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
             gwaiting_on[(name, version)] = []
             result = fetcher(version)
             save_resource(name, version, result, delete_old)
-            for cb, nm in gwaiting_on[(name, version)]:
-                do_later_event_loop(functools.partial(cb, result), str(nm) + " - called back by completed resource fetch")
+            for cb in gwaiting_on[(name, version)]:
+                do_later_event_loop(functools.partial(cb, result))
             del gwaiting_on[(name, version)]
             if handler: _modified(modified_cache[str(name) + '_' + str(version) + '_modified'], handler)
             return result
@@ -195,7 +199,7 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
             return name_cache[version]
         elif return_old_okay:
             old_ver = max(name_cache.keys())
-            do_later_event_loop(do_fetch_once, 'fetch ' + name + ' ' + str(version))
+            do_later_event_loop(do_fetch_once)
             if handler: _modified(modified_cache[str(name) + '_' + str(old_ver) + '_modified'], handler)
             return name_cache[old_ver]        
     return do_fetch_once()
@@ -258,7 +262,7 @@ def _dl_helper(func, adder):
             func()
         except Exception, e:
             bug(e)
-    adder(lambda: run_on_gr(do_it))
+    adder(do_it)
 
            
 class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
@@ -279,7 +283,10 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             buglogger.error('WARNING: something slipped through to the request default error handler!')
             bug(e)
             if not self._finished and not hasattr(self, '_dead'):
-                self.send_error(500, exception=e)
+                try:
+                    self.send_error(500, exception=e)
+                except:
+                    pass
                 
     def on_connection_close(self):
         self._dead = True
@@ -316,19 +323,18 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                     if not hasattr(method, 'remote_method_async'): 
                         if not hasattr(method, 'do_not_serialize'):
                             x = self.serialize(x)
-                        if not self._finished:
+                        if not self._finished and not hasattr(self, '_dead'):
                             self.write(x)
                             self.finish()
                     elif x is not None:
                         raise Exception('cannot return non-None from an asynchronous method')  
                 except Send304Exception:
-                    self.set_status(304)
-                    self.finish()
+                    if not self._finished and not hasattr(self, '_dead'):
+                        self.set_status(304)
+                        self.finish()
                 except Exception, e:
-                    if str(e) == 'Stream is closed': #I have an open stackoverflow question to see if this is an appropriate way of handling it
-                        return
                     r = self.handle_exception(e, methodname)
-                    if not self._finished:
+                    if not self._finished and not hasattr(self, '_dead'):
                         self.write(self.serialize(r))
                         self.finish()
                                 
@@ -397,3 +403,16 @@ class NoCacheStaticHandler(tornado.web.StaticFileHandler):
         self.set_header("Date", formatdate(timeval = stamp, localtime = False, usegmt = True))
         if "v" not in self.request.arguments:
             self.set_header("Cache-Control", "no-cache")
+    def _handle_request_exception(self, e):
+        if isinstance(e, HTTPError):
+            tornado.web.RequestHandler._handle_request_exception(self, e)
+        else:
+            if str(e).find('Connection reset by peer') != -1:
+                return
+            buglogger.error('WARNING: something slipped through to the request default error handler!')
+            bug(e)
+            if not self._finished and not hasattr(self, '_dead'):
+                try:
+                    self.send_error(500, exception=e)
+                except:
+                    pass
