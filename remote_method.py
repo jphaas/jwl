@@ -76,6 +76,10 @@ def http_method(method):
         func._http_type = method
         return func
     return modifier
+    
+def asynchronous(func):
+    func.remote_method_async = True
+    return func
 
 #Takes a single json item or a list of json items
 #deserializes from json
