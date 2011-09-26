@@ -303,6 +303,16 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         def callback():
             self.async_finish(returnValue)
         tornado.ioloop.IOLoop.instance().add_timeout(time.time() + delay, callback)
+        
+    def safe_finish(self):
+        try:
+            if not self._finished and not hasattr(self, '_dead'):
+                self.finish()
+        except Exception, e:
+            if str(e).find('write() on closed GzipFile object') != -1:
+                pass
+            else:
+                raise
             
     def _handle(self):
         method = None
@@ -335,27 +345,23 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                     
                     if not hasattr(method, 'do_not_serialize'):
                         x = self.serialize(x)
-                    if not self._finished and not hasattr(self, '_dead'):
-                        self.write(x)
-                        self.finish()
+                    self.write(x)
+                    self.safe_finish()
 
                 except Send304Exception:
-                    if not self._finished and not hasattr(self, '_dead'):
-                        self.set_status(304)
-                        self.finish()
+                    self.set_status(304)
+                    self.safe_finish()
                 except Exception, e:
                     r = self.handle_exception(e, methodname)
-                    if not self._finished and not hasattr(self, '_dead'):
-                        self.write(self.serialize(r))
-                        self.finish()
+                    self.write(self.serialize(r))
+                    self.safe_finish()
                                 
             run_on_gr(do_it)   
                    
         except Exception, e:
             r = self.handle_exception(e, methodname)
-            if not self._finished:
-                self.write(self.serialize(r))
-                self.finish()     
+            self.write(self.serialize(r))
+            self.safe_finish()  
         
     @staticmethod
     def get_arglist(method):
