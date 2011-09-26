@@ -310,9 +310,10 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                 self.finish()
         except Exception, e:
             if str(e).find('write() on closed GzipFile object') != -1:
-                pass
-            else:
-                raise
+                return
+            if str(e).find('I/O operation on closed file') != -1:
+                return
+            raise
             
     def _handle(self):
         method = None
