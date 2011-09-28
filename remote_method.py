@@ -421,6 +421,7 @@ class NoCacheStaticHandler(tornado.web.StaticFileHandler):
         self.set_header("Date", formatdate(timeval = stamp, localtime = False, usegmt = True))
         if "v" not in self.request.arguments:
             self.set_header("Cache-Control", "no-cache")
+        self.postprocess()
     def _handle_request_exception(self, e):
         if isinstance(e, HTTPError):
             tornado.web.RequestHandler._handle_request_exception(self, e)
