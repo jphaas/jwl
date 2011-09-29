@@ -278,7 +278,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         else:
             buglogger.error('WARNING: something slipped through to the request default error handler!')
             bug(e)
-            if not self._finished and not hasattr(self, '_dead'):
+            if not self._finished and not hasattr(self, '_dead') and not self._headers_written:
                 try:
                     self.send_error(500, exception=e)
                 except:
@@ -430,7 +430,7 @@ class NoCacheStaticHandler(tornado.web.StaticFileHandler):
                 return
             buglogger.error('WARNING: something slipped through to the request default error handler!')
             bug(e)
-            if not self._finished and not hasattr(self, '_dead'):
+            if not self._finished and not hasattr(self, '_dead') and not self._headers_written:
                 try:
                     self.send_error(500, exception=e)
                 except:
