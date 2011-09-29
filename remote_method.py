@@ -198,7 +198,7 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
             return name_cache[version]
         elif return_old_okay:
             old_ver = max(name_cache.keys())
-            do_later_event_loop(do_fetch_once)
+            do_later_event_loop(lambda: run_on_gr(do_fetch_once))
             if handler: _modified(modified_cache[str(name) + '_' + str(old_ver) + '_modified'], handler)
             return name_cache[old_ver]        
     return do_fetch_once()
@@ -247,7 +247,7 @@ def execute_async(func, t = 'callback'):
     do_later(do_it, t=t)
     return yield_til_resume()
  
-#executes function on the main event loop, but at a seperate time.
+#executes function on the main event loop, but at a seperate time.  YOU ARE RESPONSIBLE FOR WRAPPING IT IN A GREENLET IF NECESSARY
 def do_later_event_loop(func):
     _dl_helper(func, tornado.ioloop.IOLoop.instance().add_callback)
     
