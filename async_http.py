@@ -88,7 +88,7 @@ class AsyncHttpConnection(object):
 class AsyncConnectionMixin(object):
     def get_http_connection(self, host, is_secure):
         if not remote_method.on_greenlet():
-            return super(AsyncConnectionMixin, self).get_http_connection(self, host, is_secure)
+            return super(AsyncConnectionMixin, self).get_http_connection(host, is_secure)
         if not hasattr(self, "_async_http_connection"):
             self._async_http_connection = AsyncHttpConnection(self)
         self._async_http_connection.host = host
