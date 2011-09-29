@@ -313,6 +313,8 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                 return
             if str(e).find('I/O operation on closed file') != -1:
                 return
+            if str(e).find('Request closed') != -1:
+                return
             raise
             
     def _handle(self):
