@@ -133,7 +133,7 @@ def get_resume_cb():
 def yield_til_resume():
     return greenlet.getcurrent().parent.switch()
     
-def on_greenlet()
+def on_greenlet():
     return greenlet.getcurrent().parent != None
     
 def run_on_gr(func):
