@@ -120,6 +120,8 @@ def handle_callback_exception(self, callback):
 tornado.ioloop.IOLoop.handle_callback_exception = handle_callback_exception
        
 def get_resume_cb():
+    if not on_greenlet():
+        raise Exception('not on greenlet so cannot get resume callback')
     gr = greenlet.getcurrent()
     def cb(value, success=True):
         if greenlet.getcurrent().parent != None:
