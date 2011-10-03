@@ -118,6 +118,46 @@ def handle_callback_exception(self, callback):
     buglogger.error('WARNING: something slipped through to the main tornado loop!')
     bug(sys.exc_info()[1])
 tornado.ioloop.IOLoop.handle_callback_exception = handle_callback_exception
+
+#Hack into shitty Tornado error handling and replace it with my own
+def _handle_events_hack(self, fd, events):
+    while True:
+        try:
+            connection, address = self._sockets[fd].accept()
+        except socket.error, e:
+            if e.args[0] in (errno.EWOULDBLOCK, errno.EAGAIN):
+                return
+            raise
+        if self.ssl_options is not None:
+            assert ssl, "Python 2.6+ and OpenSSL required for SSL"
+            try:
+                connection = ssl.wrap_socket(connection,
+                                             server_side=True,
+                                             do_handshake_on_connect=False,
+                                             **self.ssl_options)
+            except ssl.SSLError, err:
+                if err.args[0] == ssl.SSL_ERROR_EOF:
+                    return connection.close()
+                else:
+                    raise
+            except socket.error, err:
+                if err.args[0] == errno.ECONNABORTED:
+                    return connection.close()
+                else:
+                    raise
+        try:
+            if self.ssl_options is not None:
+                stream = iostream.SSLIOStream(connection, io_loop=self.io_loop)
+            else:
+                stream = iostream.IOStream(connection, io_loop=self.io_loop)
+            HTTPConnection(stream, address, self.request_callback,
+                           self.no_keep_alive, self.xheaders)
+        except Exception: #THIS IS THE ONLY PART OF THE FUNCTION I AM CHANGING
+            buglogger.error('WARNING: something slipped through to tornado.httpserver._handle_events error code!')
+            bug(sys.exc_info()[1])
+import tornado.httpserver
+tornado.httpserver._handle_events = _handle_events_hack
+
        
 def get_resume_cb():
     if not on_greenlet():
