@@ -19,6 +19,9 @@ import decimal
 import sys
 from tornado.web import HTTPError
 import email.utils
+import cProfile
+from os.path import exists
+from os import mkdir
 
 
 bug = None
@@ -211,6 +214,10 @@ queues['task'] = Queue.Queue()
 queues['callback'] = Queue.Queue()
 threads = {}
 
+
+#CONSIDER USING THIS INSTEAD:
+#http://docs.python.org/library/multiprocessing.html
+
 def workerThread(thread_name):
     while True:
         try:
@@ -347,8 +354,13 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                     r = self.handle_exception(e, methodname)
                     self.write(self.serialize(r))
                     self.safe_finish()
-                                
-            run_on_gr(do_it)   
+                      
+            if deployconfig.get('debug'):      
+                if not exists('profiling'):
+                    mkdir('profiling')
+                cProfile.runctx('run_on_gr(do_it)', globals(), locals(), 'profiling/' + methodname)
+            else:
+                run_on_gr(do_it)   
                    
         except Exception, e:
             r = self.handle_exception(e, methodname)

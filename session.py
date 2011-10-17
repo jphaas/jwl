@@ -28,7 +28,8 @@ def back_up():
         with open(_backup, 'w') as file:
             file.write(pickle.dumps(session_clone))
         # set_backup = False
-    remote_method.do_later(do_it)    
+    #CHANGE:do_later
+    remote_method.do_later_event_loop(do_it)    
         
 def get_data(key):
     if expires.has_key(key) and expires[key] is not None and expires[key] < time.time(): return None
