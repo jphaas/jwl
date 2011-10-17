@@ -21,8 +21,12 @@ from tornado.web import HTTPError
 import email.utils
 import cProfile
 from os.path import exists, join
-from os import mkdir
+from os import mkdir, makedirs
 
+
+#disable tornado logging requests, since this seems to cause weirdness with the profiler
+import tornado.web
+tornado.web.Application.log_request = lambda self, handler: True
 
 bug = None
 def set_bug(bugfunc):
@@ -327,6 +331,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                     raise Exception('"method" not found in get / post data')
             else:
                 methodname = self.get_argument('method')
+                self.methodname = methodname
             try:
                 method = filter(lambda m: m.__name__ == methodname, self.get_method_list())[0]
             except IndexError:
@@ -358,7 +363,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                       
             if deployconfig.get('debug'):      
                 if not exists(self.profiling_path):
-                    mkdir(self.profiling_path)
+                    makedirs(self.profiling_path)
                 cProfile.runctx('run_on_gr(do_it)', globals(), locals(), join(self.profiling_path, methodname))
             else:
                 run_on_gr(do_it)   
