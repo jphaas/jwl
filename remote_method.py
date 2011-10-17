@@ -20,7 +20,7 @@ import sys
 from tornado.web import HTTPError
 import email.utils
 import cProfile
-from os.path import exists
+from os.path import exists, join
 from os import mkdir
 
 
@@ -273,6 +273,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     """  
     Override GetFunctionList() to provide the list of method to convert.
     """
+    profiling_path = 'profiling'
     @tornado.web.asynchronous
     def get(self):
         self._handle()
@@ -356,9 +357,9 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                     self.safe_finish()
                       
             if deployconfig.get('debug'):      
-                if not exists('profiling'):
-                    mkdir('profiling')
-                cProfile.runctx('run_on_gr(do_it)', globals(), locals(), 'profiling/' + methodname)
+                if not exists(self.profiling_path):
+                    mkdir(self.profiling_path)
+                cProfile.runctx('run_on_gr(do_it)', globals(), locals(), join(self.profiling_path, methodname))
             else:
                 run_on_gr(do_it)   
                    
