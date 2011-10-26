@@ -344,7 +344,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             arglist = self.get_arglist(method)
                           
             args = dict((argname, deserialize(self.get_argument(argname), argname) if i.has_key(argname) else None) for argname in arglist)
-            args1 = dict((k, v if k not in ('pw', 'password') else '****') for k, v in args.iteritems()) 
+            args1 = dict((k, v if k not in ('pw', 'password', 'pw2') else '****') for k, v in args.iteritems()) 
             logger.debug(method.__name__ + ' ' + repr(args1))
             
             def do_it(): 
