@@ -300,9 +300,13 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             do_later_event_loop(functools.partial(self._gr_cb, result))
             self._gr_cb = None    
         
-    def set_timeout(self, delay, returnValue):
+    def set_timeout(self, delay, returnValue):  #return value can either be a value to be sent back, 
+                                                #or a function that should call async finish
         def callback():
-            self.async_finish(returnValue)
+            if hasattr(returnValue, '__call__'):
+                returnValue()
+            else:    
+                self.async_finish(returnValue)
         tornado.ioloop.IOLoop.instance().add_timeout(time.time() + delay, callback)
         
     def safe_finish(self):
