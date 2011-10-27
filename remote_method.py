@@ -303,10 +303,11 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     def set_timeout(self, delay, returnValue):  #return value can either be a value to be sent back, 
                                                 #or a function that should call async finish
         def callback():
-            if hasattr(returnValue, '__call__'):
-                returnValue()
-            else:    
-                self.async_finish(returnValue)
+            if hasattr(self, '_gr_cb') and self._gr_cb:
+                if hasattr(returnValue, '__call__'):
+                    returnValue()
+                else:    
+                    self.async_finish(returnValue)
         tornado.ioloop.IOLoop.instance().add_timeout(time.time() + delay, callback)
         
     def safe_finish(self):
