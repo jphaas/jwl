@@ -5,8 +5,11 @@ import tornado.httpclient
 from .utils import curlpatch
 from tornado.httpserver import HTTPServer
 import time
+import logging
 
 tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
+
+logger = logging.getLogger('jwl.tornado_launch')
 
 def launch(application, port):
     server = HTTPServer(application)
@@ -16,13 +19,13 @@ def launch(application, port):
         try:
             server.listen(port, "")
             break
-        except:
+        except Exception, e:
             # if retries < 40 / 0.01:
             time.sleep(0.01)
             retries += 1
             if retries % 500 == 0:
-                print 'still trying to gain access to port...'
+                logger.info('still trying to gain access to port: ' + str(e))
             # else:
             #     raise
-    print 'server started succesfully, starting ioloop'
+    logger.info('server started succesfully, starting ioloop')
     tornado.ioloop.IOLoop.instance().start()
