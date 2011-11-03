@@ -17,10 +17,12 @@ def launch(application, port):
             server.listen(port, "")
             break
         except:
-            if retries < 40 / 0.01:
-                time.sleep(0.01)
-                retries += 1
-            else:
-                raise
+            # if retries < 40 / 0.01:
+            time.sleep(0.01)
+            retries += 1
+            if retries % 500 == 0:
+                print 'still trying to gain access to port...'
+            # else:
+            #     raise
     print 'server started succesfully, starting ioloop'
     tornado.ioloop.IOLoop.instance().start()

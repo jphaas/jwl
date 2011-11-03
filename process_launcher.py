@@ -17,8 +17,6 @@ baselogger.info('starting subprocess....')
 
 p = subprocess.Popen(child_command.split(' '), stdin=None, stdout=None, stderr=None)
 
-done_now = False
-
 class EscapeException(Exception):
     pass
 
@@ -33,8 +31,8 @@ signal.signal(signal.SIGTERM, on_term)
 try:
     while True:
         s = p.poll()
-        if s: break
-        if done_now: break
+        if s:
+            raise Exception('CHILD PROCESS TERMINATED ON ITS OWN')
         time.sleep(0.01)
 except EscapeException:
     pass
