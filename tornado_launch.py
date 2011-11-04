@@ -15,6 +15,7 @@ def launch(application, port):
     server = HTTPServer(application)
     application._my_server = server
     retries = 0
+    logger.info('about to try to connect')
     while True:
         try:
             server.listen(port, "")
