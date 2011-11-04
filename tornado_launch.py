@@ -6,6 +6,7 @@ from .utils import curlpatch
 from tornado.httpserver import HTTPServer
 import time
 import logging
+import sys
 
 tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
 
@@ -33,3 +34,4 @@ def launch(application, port):
     logger.info('ioloop ended, about to close it')
     tornado.ioloop.IOLoop.instance().close()
     logger.info('ioloop is closed')
+    sys.exit()
