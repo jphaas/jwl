@@ -30,3 +30,6 @@ def launch(application, port):
             #     raise
     logger.info('server started succesfully, starting ioloop')
     tornado.ioloop.IOLoop.instance().start()
+    logger.info('ioloop ended, about to close it')
+    tornado.ioloop.IOLoop.instance().close()
+    logger.info('ioloop is closed')
