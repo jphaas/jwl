@@ -7,6 +7,8 @@ from tornado.httpserver import HTTPServer
 import time
 import logging
 import sys
+import traceback
+import os
 
 tornado.httpclient.AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
 
@@ -29,9 +31,9 @@ def launch(application, port):
                 logger.info('still trying to gain access to port: ' + str(e))
             # else:
             #     raise
-    logger.info('server started succesfully, starting ioloop')
-    tornado.ioloop.IOLoop.instance().start()
-    logger.info('ioloop ended, about to close it')
-    tornado.ioloop.IOLoop.instance().close()
-    logger.info('ioloop is closed')
-    sys.exit()
+    try:
+        i = tornado.ioloop.IOLoop.instance()
+        logger.info('server started succesfully, starting ioloop')
+        i.start()
+    except:
+        logger.info(traceback.format_exc())
