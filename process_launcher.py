@@ -31,7 +31,7 @@ signal.signal(signal.SIGTERM, on_term)
 try:
     while True:
         s = p.poll()
-        if s:
+        if s is not None:
             raise Exception('CHILD PROCESS TERMINATED ON ITS OWN')
         time.sleep(0.01)
 except EscapeException:
