@@ -313,7 +313,11 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         if not hasattr(self._my_application, 'all_pending_timeouts'):
             self._my_application.all_pending_timeouts = set()
         self._my_application.all_pending_timeouts.add(callback)
-        tornado.ioloop.IOLoop.instance().add_timeout(time.time() + delay, callback)
+        return tornado.ioloop.IOLoop.instance().add_timeout(time.time() + delay, callback)
+        
+    #timeout_pointer should be the return value of set_timeout
+    def cancel_timeout(self, timeout_pointer):
+        tornado.ioloop.IOLoop.instance().remove_timeout(timeout_pointer)
         
     def safe_finish(self):
         try:
