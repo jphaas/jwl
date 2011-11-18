@@ -174,7 +174,7 @@ class GraphAPI(object):
             r = file.read()
             response = _parse_json(r)
         except:
-            raise Exception('failed to parse facebook response: ' + str(r))
+            raise Exception('failed to parse facebook response: ' + unicode(r))
         finally:
             file.close()
         if response.get("error"):

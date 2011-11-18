@@ -110,7 +110,7 @@ def _deser(obj):
         if dt == 'timestamp':
             return float(d['value'])
         else:
-            raise Exception('uncrecognized datatype: ' + str(dt))
+            raise Exception('uncrecognized datatype: ' + unicode(dt))
     return d
     
   
@@ -162,7 +162,7 @@ def save_resource(name, version, value, delete_old = True):
         name_cache = {}
         gresource_cache[name] = name_cache
     name_cache[version] = value
-    modified_cache[str(name) + '_' + str(version) + '_modified'] = time.time()
+    modified_cache[unicode(name) + '_' + unicode(version) + '_modified'] = time.time()
     if delete_old:
         for key in name_cache.keys():
             if key < version: del name_cache[key] 
@@ -185,7 +185,7 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
             grc = get_resume_cb()
             gwaiting_on[(name, version)].append(grc)
             ret = yield_til_resume()
-            if handler: _modified(modified_cache[str(name) + '_' + str(version) + '_modified'], handler)
+            if handler: _modified(modified_cache[unicode(name) + '_' + unicode(version) + '_modified'], handler)
             return ret
         else:
             gwaiting_on[(name, version)] = []
@@ -194,17 +194,17 @@ def fetch_cache_resource(fetcher, name, version, return_old_okay = True, delete_
             for cb in gwaiting_on[(name, version)]:
                 do_later_event_loop(functools.partial(cb, result))
             del gwaiting_on[(name, version)]
-            if handler: _modified(modified_cache[str(name) + '_' + str(version) + '_modified'], handler)
+            if handler: _modified(modified_cache[unicode(name) + '_' + unicode(version) + '_modified'], handler)
             return result
     if gresource_cache.has_key(name):
         name_cache = gresource_cache[name]
         if name_cache.has_key(version):
-            if handler: _modified(modified_cache[str(name) + '_' + str(version) + '_modified'], handler)
+            if handler: _modified(modified_cache[unicode(name) + '_' + unicode(version) + '_modified'], handler)
             return name_cache[version]
         elif return_old_okay:
             old_ver = max(name_cache.keys())
             do_later_event_loop(lambda: run_on_gr(do_fetch_once))
-            if handler: _modified(modified_cache[str(name) + '_' + str(old_ver) + '_modified'], handler)
+            if handler: _modified(modified_cache[unicode(name) + '_' + unicode(old_ver) + '_modified'], handler)
             return name_cache[old_ver]        
     return do_fetch_once()
         
@@ -324,11 +324,11 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             if not self._finished and not hasattr(self, '_dead'):
                 self.finish()
         except Exception, e:
-            if str(e).find('write() on closed GzipFile object') != -1:
+            if unicode(e).find('write() on closed GzipFile object') != -1:
                 return
-            if str(e).find('I/O operation on closed file') != -1:
+            if unicode(e).find('I/O operation on closed file') != -1:
                 return
-            if str(e).find('Request closed') != -1:
+            if unicode(e).find('Request closed') != -1:
                 return
             raise
             

@@ -22,7 +22,7 @@ class AsyncHttpResponse(object):
         self.buffer = buffer
         self.headers = headers
         if buffer is None:
-            raise Exception('Missing buffer:\nStatus:\n' + str(status) + '\nbody:\n' + str(body) + '\nheaders:\n' + str(headers))
+            raise Exception('Missing buffer:\nStatus:\n' + unicode(status) + '\nbody:\n' + unicode(body) + '\nheaders:\n' + unicode(headers))
         self.msg = mimetools.Message(buffer)
     def read(self, bytes = -1):
         if bytes == -1:

@@ -9,14 +9,14 @@ def guess_type(obj):
 def clean_v(obj):
     for k, v in types.iteritems():
         if isinstance(obj, k): return obj
-    return str(obj)
+    return unicode(obj)
 
 def safe_execute(func):
     def new_func(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except sqlite3.OperationalError, e:
-            return [{'msg': 'error loading metrics: ' + str(e)}]
+            return [{'msg': 'error loading metrics: ' + unicode(e)}]
     return new_func
 
 class Store:

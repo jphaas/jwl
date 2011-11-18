@@ -28,7 +28,7 @@ def launch(application, port):
             time.sleep(0.01)
             retries += 1
             if retries % 500 == 0:
-                logger.info('still trying to gain access to port: ' + str(e))
+                logger.info('still trying to gain access to port: ' + unicode(e))
             # else:
             #     raise
     try:
