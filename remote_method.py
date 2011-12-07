@@ -329,11 +329,15 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     def cancel_timeout(self, timeout_pointer):
         tornado.ioloop.IOLoop.instance().remove_timeout(timeout_pointer)
         
-    def safe_finish(self):
+    def safe_finish(self, val = None):
         try:
             self._gr_cb = None #once safe finish is called, do not let anyone resume the
                                 #greenlet related to this request
             if not self._finished and not hasattr(self, '_dead'):
+                if val is not None:
+                    if self.should_serialize:
+                        val = self.serialize(val)
+                    self.write(val)
                 self.finish()
                 return True
         except Exception, e:
@@ -371,16 +375,18 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             args1 = dict((k, v if k not in ('pw', 'password', 'pw2') else '****') for k, v in args.iteritems()) 
             logger.debug(method.__name__ + ' ' + repr(args1))
             
+            self.should_serialize = not hasattr(method, 'do_not_serialize')
+            
             def do_it(): 
                 try:
                     x = method(**args)
                     self.postprocess()
                     
-                    if not hasattr(method, 'do_not_serialize'):
-                        x = self.serialize(x)
-                    self.write(x)
-                    self.safe_finish()
+                    self.safe_finish(x)
 
+                except greenlet.GreenletExit:  #means that we've garbage collected the resume 
+                                               #and should just let it die
+                    raise
                 except Send304Exception:
                     self.set_status(304)
                     self.safe_finish()
