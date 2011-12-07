@@ -295,17 +295,20 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
     def async_set(self):
         self._gr_cb = get_resume_cb()
         
-    def async_finish(self, result):
+    #returns true if successfully launched call, false if not
+    def async_resume(self, result):
         if hasattr(self, '_gr_cb') and self._gr_cb:
             do_later_event_loop(functools.partial(self._gr_cb, result))
             self._gr_cb = None    
+            return True
+        return False
             
     def sleep(self, miliseconds):
         def callback(): self._gr_cb(None)
         tornado.ioloop.IOLoop.instance().add_timeout(time.time() + miliseconds, callback)
         self.async_wait()
         
-    def set_timeout(self, delay, returnValue):  #return value can either be a value to be sent back, 
+    def set_timeout(self, delay, returnValue, no_error = False):  #return value can either be a value to be sent back, 
                                                 #or a function that should call async finish
         def callback():
             if callback in self._my_application.all_pending_timeouts:
@@ -314,7 +317,9 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
                 if hasattr(returnValue, '__call__'):
                     returnValue()
                 else:    
-                    self.async_finish(returnValue)
+                    r = self.safe_finish(returnValue)
+                    if not no_error and not r:
+                        raise Exception('timeout fired but request was already closed')
         if not hasattr(self._my_application, 'all_pending_timeouts'):
             self._my_application.all_pending_timeouts = set()
         self._my_application.all_pending_timeouts.add(callback)
@@ -326,8 +331,11 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
         
     def safe_finish(self):
         try:
+            self._gr_cb = None #once safe finish is called, do not let anyone resume the
+                                #greenlet related to this request
             if not self._finished and not hasattr(self, '_dead'):
                 self.finish()
+                return True
         except Exception, e:
             if unicode(e).find('write() on closed GzipFile object') != -1:
                 return
@@ -336,6 +344,7 @@ class HTTPHandler(tornado.web.RequestHandler, AuthMixin):
             if unicode(e).find('Request closed') != -1:
                 return
             raise
+        return False
             
     def _handle(self):
         method = None
