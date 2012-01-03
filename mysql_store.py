@@ -26,7 +26,7 @@ class Store:
     def __init__(self, conn):
         self.conn = conn
         try:
-            cols = [r['Field'] for r in conn.query('show columns from ' + self.table)]
+            cols = [r['Field'].lower() for r in conn.query('show columns from ' + self.table)]
             self.cols = cols
         except:
             self.cols = []
@@ -34,7 +34,7 @@ class Store:
         
     def insert(self, row):
         for k, v in row.iteritems():
-            if k not in self.cols:
+            if k.lower() not in self.cols:
                 self.conn.execute('alter table ' + self.table + ' add column `' + k + '` ' + guess_type(v))
                 self.cols.append(k)
         self.conn.execute('insert into ' + self.table + '(%s) VALUES (%s)'%(', '.join(['`' + k + '`' for k in row.keys()]), ', '.join(['%s' for v in row.values()])), *[clean_v(v) for v in row.values()])
