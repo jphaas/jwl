@@ -1,6 +1,7 @@
 import tornado.database
 import _mysql_exceptions
 from OrderedDict import OrderedDict
+import datetime
 
 types = {int: 'integer', long: 'integer', float: 'real', str: 'varchar(1000)', unicode: 'varchar(1000)'}
 def guess_type(obj):
@@ -38,16 +39,23 @@ class Store:
                 self.cols.append(k)
         self.conn.execute('insert into ' + self.table + '(%s) VALUES (%s)'%(', '.join(['`' + k + '`' for k in row.keys()]), ', '.join(['%s' for v in row.values()])), *[clean_v(v) for v in row.values()])
 
+def _filter(rows):
+    for row in rows:
+        for key, value in row.iteritems():
+            if isinstance(value, datetime.timedelta):
+                raise Exception(key)
+    return rows
     
 class ObjectQuery:
     def __init__(self, conn):
         self.conn = conn
         self.tz = 0
+        
     @safe_execute
     def get(self, table, columns, list_column = None, filter=''):
         q = 'select ' + ', '.join(columns) + ' from ' + table + ' ' + filter
         try:
-            raw = self.conn.execute(q)
+            raw = self.conn.query(q)
         except:
             raise
         columnsClean = [c.split()[-1] for c in columns]
@@ -56,19 +64,17 @@ class ObjectQuery:
             if list_column is not None:
                 obj['expand_list'] = list_column(obj)
             return obj
-        return [process_row(r) for r in raw]
+        return _filter([process_row(r) for r in raw])
     @safe_execute
     def get_raw(self, query):
-        raw = list(self.conn.query(query))
-        columns = raw[0].keys() if len(raw) > 0 else []
-        columns = [c.replace('`', '') for c in columns] #sqlite weirdly returns the quotes around columns sometimes?
-        return [OrderedDict(zip(columns, r)) for r in raw] 
+        raw = self.conn.query(query)
+        return raw
     @safe_execute
     def get_grouped(self, table, groups, filter):
         columns_flat = (col for group in groups for col in group)
         q = 'select ' + ', '.join(columns_flat) + ' from ' + table + ' ' + filter
         try:
-            raw = self.conn.execute(q)
+            raw = self.conn.query(q)
         except:
             raise
         def process(groups, rows):
