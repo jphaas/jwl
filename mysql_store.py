@@ -4,10 +4,8 @@ from OrderedDict import OrderedDict
 import datetime
 
 types = {int: 'integer', long: 'integer', float: 'real', str: 'text', unicode: 'text'}
-def guess_type(obj):
-    return 'text'
-    for k, v in types.iteritems():
-        if isinstance(obj, k): return v
+def guess_type(obj, name):
+    if name in ['comp_id', 'time', 'user', 'event_name']: return 'varchar(255)'
     return 'text'
 def clean_v(obj):
     for k, v in types.iteritems():
@@ -36,7 +34,7 @@ class Store:
     def insert(self, row):
         for k, v in row.iteritems():
             if k.lower() not in self.cols:
-                self.conn.execute('alter table ' + self.table + ' add column `' + k + '` ' + guess_type(v))
+                self.conn.execute('alter table ' + self.table + ' add column `' + k + '` ' + guess_type(v, k))
                 self.cols.append(k)
         self.conn.execute('insert into ' + self.table + '(%s) VALUES (%s)'%(', '.join(['`' + k + '`' for k in row.keys()]), ', '.join(['%s' for v in row.values()])), *[clean_v(v) for v in row.values()])
 
