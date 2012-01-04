@@ -3,11 +3,12 @@ import _mysql_exceptions
 from OrderedDict import OrderedDict
 import datetime
 
-types = {int: 'integer', long: 'integer', float: 'real', str: 'varchar(1000)', unicode: 'varchar(1000)'}
+types = {int: 'integer', long: 'integer', float: 'real', str: 'text', unicode: 'text'}
 def guess_type(obj):
+    return 'text'
     for k, v in types.iteritems():
         if isinstance(obj, k): return v
-    return 'varchar(1000)'
+    return 'text'
 def clean_v(obj):
     for k, v in types.iteritems():
         if isinstance(obj, k): return obj
