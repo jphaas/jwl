@@ -1,4 +1,3 @@
-import tornado.database
 import _mysql_exceptions
 from OrderedDict import OrderedDict
 import datetime
